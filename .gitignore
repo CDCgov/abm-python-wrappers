@@ -1,6 +1,9 @@
 #####
 # Exclude many data and output file types by default
 
+#Config with secrets
+config.toml
+
 # Data
 *.csv
 *.tsv

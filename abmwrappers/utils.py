@@ -36,8 +36,6 @@ def run_gcm_command_line(
     subprocess.run(
         gcm_command,
         check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
     )  # TODO: write output to a logfile if needed
 
 
@@ -358,7 +356,7 @@ def initialize_azure_client(
     client = AzureClient(config_path=config_path)
 
     try:
-        client.create_blob_container(blob_container_name, "gcm_blob")
+        client.create_blob_container(blob_container_name, blob_container_name)
 
         if create_pool:
             # Set pool creation config variables
