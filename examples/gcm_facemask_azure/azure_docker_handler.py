@@ -10,8 +10,8 @@ super_experiment_name = "wtk-gcm-azb"
 create_pool = True
 ab_config_path = "examples/azb_config.yaml"
 files_to_upload = [
-    "examples/azure_batch/facemask_for_azb_script.py",
-    "input/config.yaml",
+    "examples/gcm_facemask_azure/model_run.py",
+    "examples/gcm_facemask_azure/input/config.yaml",
 ]
 
 ## ======================================#
