@@ -1,0 +1,28 @@
+baseScenario:
+  population: 10000
+  avgSchoolSize: 50
+  avgHomeSize: 100
+  avgWorkplaceSize: 100
+  averageContactsPerDay: 0.9
+  initialPrevalence: 0.05
+  infectiousPeriod: 5.0
+  latentPeriod: 3
+  symptomsPeriod: 5
+  symptomsProbability: 0.8
+  totalDays: 100
+  initialDiscretePrevalence: 0
+
+  ## Facemask parameters
+  individualSusceptibilityReduction: 0.5
+  individualInfectiousnessReduction: 0.6
+  probabilityCommunityMaskWearing: 0.8
+  probabilitySymptomsMaskWearing: 0.1
+  facemaskSymptomsDuration: 10
+  facemaskCommunityDuration: 100
+  facemaskCommunityStartDay: 10
+  enableCommunityPolicy: true
+  enableSymptomaticPolicy: true
+  enableFacemaskCommunityTrigger: true
+  communityMaskTriggerInterval: 14
+  facemaskCommunityTrigger: 400
+  randomSeed: 834131
