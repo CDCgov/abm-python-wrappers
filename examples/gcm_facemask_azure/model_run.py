@@ -7,7 +7,7 @@ from abmwrappers import utils, wrappers
 ## User inputs------
 ## ======================================#
 experiments_dir = "experiments"
-super_experiment_name = "cv-gcm-azb"
+super_experiment_name = "wtk-gcm-azb"
 sub_experiment_name = "subexperiment_1"
 default_params_file = f"/{super_experiment_name}/config.yaml"
 print("hi")
