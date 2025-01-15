@@ -14,7 +14,7 @@ scipy = "^1.14.0"
 sobol-seq = "^0.2.0"
 seaborn = "^0.13.2"
 abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
-cfa-azure = {git = "http://github.com/CDCgov/cfa_azure.git"}
+cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
 pyqt6 = "^6.7.1"
 pyarrow = "^17.0.0"
 tqdm = "^4.66.5"

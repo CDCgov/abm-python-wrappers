@@ -10,7 +10,7 @@ files = []
 develop = false
 
 [package.dependencies]
-cfa-azure = {git = "http://github.com/CDCgov/cfa_azure.git", branch = "master"}
+cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
 chaospy = "^4.3.15"
 polars = "^1.6.0"
 pre-commit = "^3.7.1"
@@ -26,7 +26,7 @@ tqdm = "^4.66.5"
 type = "git"
 url = "https://github.com/CDCgov/abc-calibration-tools.git"
 reference = "HEAD"
-resolved_reference = "78ffda124653246c1a13c8306fdd03ca67498300"
+resolved_reference = "81aee59c3c0f95de63791c2d313aca40f2f329af"
 
 [[package]]
 name = "adal"
@@ -267,7 +267,7 @@ files = [
 
 [[package]]
 name = "cfa-azure"
-version = "1.1.5"
+version = "1.1.6"
 description = "module for use with Azure and Azure Batch"
 optional = false
 python-versions = "^3.8"
@@ -291,9 +291,9 @@ toml = "^0.10.2"
 
 [package.source]
 type = "git"
-url = "http://github.com/CDCgov/cfa_azure.git"
-reference = "master"
-resolved_reference = "65f37e39c3be43c320663eb459f6f971390de39d"
+url = "https://github.com/CDCgov/cfa_azure.git"
+reference = "HEAD"
+resolved_reference = "0522e083966f6ab11e19ccf03cfe7c27db46bac0"
 
 [[package]]
 name = "cffi"
@@ -2009,4 +2009,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "239039f4cd76d64dede60af34ed3eda1a8ac68eff965ad43b87d6b168d55e1f1"
+content-hash = "8b01bc785b95a5225d41179ab68b6f710654f763ca46bbaf805d94c7c3864cf9"
