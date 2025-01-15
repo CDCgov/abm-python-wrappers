@@ -255,9 +255,7 @@ def gcm_experiments_runner(
         # Loop through simulations and add tasks to job
         for simulation in range(n_sims):
             # simulation_folder_path = f"{super_experiment_name}/{sub_experiment_name}/simulation_{simulation}"
-            simulation_folder_path = (
-                f"/gcm_blob/{sub_experiment_name}/simulation_{simulation}"
-            )
+            simulation_folder_path = f"/{super_experiment_name}/{sub_experiment_name}/simulation_{simulation}"
             input_file_name = f"input.{input_data_type}"
             input_file_path = f"{simulation_folder_path}/{input_file_name}"
             output_folder = f"{simulation_folder_path}/output/"

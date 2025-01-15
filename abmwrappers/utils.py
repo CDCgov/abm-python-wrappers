@@ -36,8 +36,6 @@ def run_gcm_command_line(
     subprocess.run(
         gcm_command,
         check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
     )  # TODO: write output to a logfile if needed
 
 
@@ -358,7 +356,7 @@ def initialize_azure_client(
     client = AzureClient(config_path=config_path)
 
     try:
-        client.create_blob_container(blob_container_name, "gcm_blob")
+        client.create_blob_container(blob_container_name, blob_container_name)
 
         if create_pool:
             # Set pool creation config variables
@@ -367,12 +365,26 @@ def initialize_azure_client(
                 if ab_config.get("docker_repo_name") is not None
                 else f"{super_experiment_name}_repo"
             )
+
             n_nodes = ab_config["n_nodes"]
+            pool_mode = ab_config["pool_mode"]
+            autoscale_nodes = (
+                ab_config["max_autoscale_nodes"]
+                if ab_config.get("max_autoscale_nodes") is not None
+                and pool_mode == "autoscale"
+                else n_nodes
+            )
+
             registry_name = ab_config["registry_name"]
             docker_image = ab_config["docker_image"]
             docker_tag = ab_config["docker_tag"]
-            pool_mode = ab_config["pool_mode"]
             debug_mode = ab_config["debug_mode"]
+
+            cache_blobfuse = (
+                ab_config["cache_blobfuse"]
+                if ab_config.get("cache_blobfuse") is not None
+                else False
+            )
 
             # Create pool
             client.set_debugging(debug_mode)
@@ -384,7 +396,11 @@ def initialize_azure_client(
                 use_device_code=True,
             )
 
-            client.set_pool_info(mode=pool_mode, dedicated_nodes=n_nodes)
+            client.set_pool_info(
+                mode=pool_mode,
+                dedicated_nodes=autoscale_nodes,
+                cache_blobfuse=cache_blobfuse,
+            )
 
             client.create_pool(pool_name=pool_name)
 

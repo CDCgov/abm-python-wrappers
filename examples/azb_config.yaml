@@ -1,0 +1,13 @@
+config_path: "config.toml" # Azure batch authentication file
+job_prefix: # if empty, defaults to f"{super_experiment_name}_"
+blob_container_name: # if empty, defaults to super_experiment_name
+pool_name: # if empty, defaults to f"{super_experiment_name}_pool"
+
+# If creating a pool:
+docker_repo_name: # if empty, defaults to f"{super_experiment_name}_repo"
+n_nodes: 1
+registry_name: "cfaprdbatchcr"
+docker_image: "Dockerfile"
+docker_tag: "latest"
+pool_mode: "autoscale"  # ["fixed", autoscale"]--autoscale recommended as it will shut down nodes automatically
+debug_mode: False
