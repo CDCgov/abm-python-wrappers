@@ -365,12 +365,13 @@ def initialize_azure_client(
                 if ab_config.get("docker_repo_name") is not None
                 else f"{super_experiment_name}_repo"
             )
-            
+
             n_nodes = ab_config["n_nodes"]
             pool_mode = ab_config["pool_mode"]
             autoscale_nodes = (
                 ab_config["max_autoscale_nodes"]
-                if ab_config.get("max_autoscale_nodes") is not None and pool_mode == "autoscale"
+                if ab_config.get("max_autoscale_nodes") is not None
+                and pool_mode == "autoscale"
                 else n_nodes
             )
 
@@ -395,7 +396,11 @@ def initialize_azure_client(
                 use_device_code=True,
             )
 
-            client.set_pool_info(mode=pool_mode, dedicated_nodes=autoscale_nodes, cache_blobfuse=cache_blobfuse)
+            client.set_pool_info(
+                mode=pool_mode,
+                dedicated_nodes=autoscale_nodes,
+                cache_blobfuse=cache_blobfuse,
+            )
 
             client.create_pool(pool_name=pool_name)
 
