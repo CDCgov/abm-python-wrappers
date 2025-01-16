@@ -384,7 +384,6 @@ def initialize_azure_client(
             docker_image = ab_config["docker_image"]
             docker_tag = ab_config["docker_tag"]
             debug_mode = ab_config["debug_mode"]
-
             cache_blobfuse = (
                 ab_config["cache_blobfuse"]
                 if ab_config.get("cache_blobfuse") is not None
@@ -405,7 +404,7 @@ def initialize_azure_client(
                 mode=pool_mode,
                 dedicated_nodes=autoscale_nodes,
                 cache_blobfuse=cache_blobfuse,
-                task_slots_per_node=task_slots_per_node
+                task_slots_per_node=task_slots_per_node,
             )
 
             client.create_pool(pool_name=pool_name)
