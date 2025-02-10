@@ -11,11 +11,13 @@ from cfa_azure.clients import AzureClient
 from abmwrappers import utils
 
 
-def gcm_experiments_writer(
+def experiments_writer(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
     simulations_dict,
+    model="gcm",
+    scenario_key="baseScenario",
     input_data_type: str = "YAML",
     azure_batch: bool = False,
     azure_client: AzureClient = None,
@@ -32,6 +34,8 @@ def gcm_experiments_writer(
         super_experiment_name (str): Name of the super experiment.
         sub_experiment_name (str): Name of the sub experiment.
         simulations_dict (dict): Dictionary containing simulation parameters.
+        model (str): "gcm" or "ixa" (default is "gcm", will check for executeable type to be sure).
+        scenario_key (str): Key for the scenario to be used in the input file (default is "baseScenario").
         input_data_type (str): Type of input data file (default is "YAML").
         azure_batch (bool): Whether to use Azure Batch for processing.
         azure_client (AzureClient): Azure client instance for interacting with Azure services.
@@ -98,12 +102,20 @@ def gcm_experiments_writer(
 
             # Create full parameters specification
             sim_params_full, _ = utils.combine_params_dicts(
-                simulations_dict["baseline_parameters"], sim_params
+                simulations_dict["baseline_parameters"],
+                sim_params,
+                scenario_key=scenario_key,
             )
+
+            # For Ixa, update the output_dir
+            if model == "ixa":
+                sim_params_full["output_dir"] = os.path.join(
+                    simulation_folder_path
+                )
 
             # Generate simulation input file content
             input_file_name = f"input.{input_data_type}"
-            sim_params_data_file = utils.gcm_parameters_writer(
+            sim_params_data_file = utils.parameters_writer(
                 sim_params_full, input_data_type
             )
 
@@ -179,14 +191,25 @@ def gcm_experiments_writer(
 
             # Create full parameters specification
             sim_params_full, _ = utils.combine_params_dicts(
-                simulations_dict["baseline_parameters"], sim_params
+                simulations_dict["baseline_parameters"],
+                sim_params,
+                scenario_key=scenario_key,
             )
+
+            # For Ixa, update the output_dir and create the folder if needed
+            if model == "ixa":
+                sim_params_full["output_dir"] = os.path.join(
+                    simulation_folder, "output"
+                )
+                os.makedirs(
+                    os.path.join(simulation_folder, "output"), exist_ok=True
+                )
 
             # Write each simulation's parameters to input file and save it to disk
             input_file_path = os.path.join(
                 simulation_folder, f"input.{input_data_type}"
             )
-            sim_params_data_file = utils.gcm_parameters_writer(
+            sim_params_data_file = utils.parameters_writer(
                 sim_params_full, input_data_type
             )
             with open(input_file_path, "w") as file:
@@ -201,19 +224,25 @@ def gcm_experiments_writer(
             f.write(full_params_json)
 
 
-def run_local_simulation(simulation_dir, input_data_type, jar_file):
+def run_local_simulation(simulation_dir, input_data_type, exe_file):
     input_file = os.path.join(simulation_dir, f"input.{input_data_type}")
-    output_dir = os.path.join(simulation_dir, "output")
 
-    utils.run_gcm_command_line(
-        jar_file,
-        yaml_file=input_file,
-        output_dir=output_dir,
-        recompile=False,
-    )
+    if exe_file.endswith(".jar"):
+        output_dir = os.path.join(simulation_dir, "output")
+        utils.run_gcm_command_line(
+            exe_file,
+            yaml_file=input_file,
+            output_dir=output_dir,
+            recompile=False,
+        )
+    else:
+        utils.run_ixa_command_line(
+            exe_file,
+            json_file=input_file,
+        )
 
 
-def gcm_experiments_runner(
+def experiments_runner(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
@@ -221,7 +250,7 @@ def gcm_experiments_runner(
     input_data_type: str = "YAML",
     num_processes: int = 8,
     azure_batch: bool = False,
-    jar_file: str = None,
+    exe_file: str = None,
     azure_client: AzureClient = None,
     job_prefix: str = "",
 ):
@@ -235,7 +264,7 @@ def gcm_experiments_runner(
         n_sims (int): Number of simulations
         input_data_type (str): data type of GCM input file
         azure_batch (bool): Whether to use Azure Batch for processing.
-        jar_file (str): Path to the jar file for running the simulations.
+        exe_file (str): Path to the file (GCM JAR file or Ixa file) for running the simulations.
         azure_client (AzureClient): Azure client instance for interacting with Azure services.
         job_prefix (str): Prefix to use for job name
     Returns:
@@ -292,7 +321,7 @@ def gcm_experiments_runner(
 
             with Pool(num_processes) as pool:
                 args_for_run_simulation = [
-                    (sim_dir, input_data_type, jar_file)
+                    (sim_dir, input_data_type, exe_file)
                     for sim_dir in simulation_dirs
                 ]
 
@@ -307,7 +336,7 @@ def gcm_experiments_runner(
             )
         elif num_processes == 0:
             for sim_dir in simulation_dirs:
-                run_local_simulation(sim_dir, input_data_type, jar_file)
+                run_local_simulation(sim_dir, input_data_type, exe_file)
 
         else:
             raise ValueError(
@@ -315,7 +344,7 @@ def gcm_experiments_runner(
             )
 
 
-def gcm_experiments_gatherer(
+def experiments_gatherer(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
@@ -388,7 +417,7 @@ def gcm_experiments_gatherer(
         return results
 
 
-def download_gcm_outputs(
+def download_outputs(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
@@ -474,7 +503,7 @@ def delete_experiment_items(
             shutil.rmtree(item_path)
 
 
-def run_gcm_experiment_sequence(
+def run_experiment_sequence(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
@@ -513,7 +542,7 @@ def run_gcm_experiment_sequence(
     """
 
     if "write" in run_list:
-        gcm_experiments_writer(
+        experiments_writer(
             experiments_dir,
             super_experiment_name,
             sub_experiment_name,
@@ -532,7 +561,7 @@ def run_gcm_experiment_sequence(
         n_sims = len(simulations_dict["simulation_parameter_values"].keys())
 
     if "run" in run_list:
-        gcm_experiments_runner(
+        experiments_runner(
             experiments_dir,
             super_experiment_name,
             sub_experiment_name,
@@ -547,7 +576,7 @@ def run_gcm_experiment_sequence(
     if "download" in run_list:
         # Download output files if using Azure Batch
         if azure_batch:
-            download_gcm_outputs(
+            download_outputs(
                 experiments_dir,
                 super_experiment_name,
                 sub_experiment_name,
@@ -557,7 +586,7 @@ def run_gcm_experiment_sequence(
             )
 
     if "gather" in run_list:
-        results_df = gcm_experiments_gatherer(
+        results_df = experiments_gatherer(
             experiments_dir,
             super_experiment_name,
             sub_experiment_name,

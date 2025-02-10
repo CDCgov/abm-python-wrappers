@@ -1,5 +1,6 @@
 import base64
 import itertools
+import json
 import os
 import subprocess
 import warnings
@@ -39,7 +40,18 @@ def run_gcm_command_line(
     )  # TODO: write output to a logfile if needed
 
 
-def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
+def run_ixa_command_line(ixa_file, json_file="./input.json"):
+    ixa_command = [f"./{ixa_file}", json_file]
+    print(ixa_command)
+    subprocess.run(
+        ixa_command,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def parameters_writer(params: dict, output_type: str = "YAML") -> str:
     """
     Converts a dictionary of parameters to the specified output format.
 
@@ -52,7 +64,8 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
     """
     if output_type == "YAML":
         params_output = yaml.dump(params)
-    # Add more conditions for other output types as needed
+    elif output_type == "json":
+        params_output = json.dumps(params, indent=4)
     else:
         raise ValueError(f"Unsupported output type: {output_type}")
 
@@ -104,7 +117,7 @@ def load_baseline_params(
     scenario_key: str = "baseScenario",
 ):
     """
-    Loads default parameters from a YAML file and updates them with baseline parameters input.
+    Loads default parameters from a YAML or JSON file and updates them with baseline parameters input.
 
     Args:
         default_params_file (str): The path to the YAML file containing default parameters.
@@ -119,12 +132,25 @@ def load_baseline_params(
     Raises:
         FileNotFoundError: If the specified default_params_file does not exist or cannot be opened.
         yaml.YAMLError: If there is an error parsing the YAML file.
+        json.JSONDecodeError: If there is an error parsing the JSON file.
         TypeError: If either of the inputs is not a dictionary.
     """
     # Attempt to read the default parameters from file
     with open(default_params_file, "r") as file:
         try:
-            default_params = yaml.safe_load(file)
+            if default_params_file.lower().endswith(
+                ".yaml"
+            ) or default_params_file.lower().endswith(".yml"):
+                default_params = yaml.safe_load(file)
+
+            elif default_params_file.lower().endswith(".json"):
+                default_params = json.load(file)
+
+            else:
+                raise ValueError(
+                    "Unsupported file type. Only YAML and JSON are supported."
+                )
+
             if not isinstance(default_params, dict):
                 raise TypeError(
                     "Default parameters loaded are not a dictionary."
@@ -139,6 +165,8 @@ def load_baseline_params(
 
         except yaml.YAMLError as e:
             raise yaml.YAMLError(f"Error reading YAML file: {e}")
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Error reading JSON file: {e}")
 
 
 def params_grid_search(param_dict):
