@@ -12,6 +12,8 @@ from cfa_azure.clients import AzureClient
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
 
+# Global character sequence for flattening nested parameters
+FLATTENED_PARAM_CONNECTOR = ">>>"
 
 def run_gcm_command_line(
     jar_file,
@@ -39,6 +41,33 @@ def run_gcm_command_line(
     )  # TODO: write output to a logfile if needed
 
 
+def flatten_dict(d, parent_key='', sep=FLATTENED_PARAM_CONNECTOR):
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
+    result = {}
+    for key, value in flat_dict.items():
+        parts = key.split(sep)
+        current_level = result
+        
+        for part in parts[:-1]:
+            if part not in current_level:
+                current_level[part] = {} 
+            current_level = current_level[part]
+        
+        current_level[parts[-1]] = value
+
+    return result
+
+
 def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
     """
     Converts a dictionary of parameters to the specified output format.
@@ -50,6 +79,7 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
     Returns:
         str: String representation of the parameters in the specified format.
     """
+    
     if output_type == "YAML":
         params_output = yaml.dump(params)
     # Add more conditions for other output types as needed
@@ -63,7 +93,7 @@ def combine_params_dicts(
     baseline_dict: dict, new_dict: dict, scenario_key: str = "baseScenario"
 ) -> Tuple[dict, str]:
     """
-    Combines two dictionaries by overwriting values in baseline_dict with values from new_dict.
+    Combines two dictionaries by overwriting values in baseline_dict with values from new_dict. It also flattens any nested parameters using FLATTENED_PARAM_CONNECTOR.
 
     Args:
         baseline_dict (dict): The baseline dictionary.
@@ -92,8 +122,11 @@ def combine_params_dicts(
         f"Updated keys: {updated_keys}\nNot modified keys: {not_modified_keys}"
     )
 
-    combined_dict = {}
-    combined_dict[scenario_key] = temp_dict
+    # Flatten dictionary
+    temp_dict_flat = flatten_dict(temp_dict)
+
+    # Re-introduce the scenario key
+    combined_dict = {scenario_key: temp_dict_flat}
 
     return combined_dict, result_string
 
