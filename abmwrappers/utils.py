@@ -68,7 +68,7 @@ def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
     return result
 
 
-def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
+def gcm_parameters_writer(params: dict, output_type: str = "YAML", unflatten: bool = True) -> str:
     """
     Converts a dictionary of parameters to the specified output format.
 
@@ -79,6 +79,9 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
     Returns:
         str: String representation of the parameters in the specified format.
     """
+
+    if unflatten:
+        params = unflatten_dict(params)
     
     if output_type == "YAML":
         params_output = yaml.dump(params)
@@ -90,7 +93,7 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
 
 
 def combine_params_dicts(
-    baseline_dict: dict, new_dict: dict, scenario_key: str = "baseScenario"
+    baseline_dict: dict, new_dict: dict, scenario_key: str = "baseScenario", flatten: bool = False
 ) -> Tuple[dict, str]:
     """
     Combines two dictionaries by overwriting values in baseline_dict with values from new_dict. It also flattens any nested parameters using FLATTENED_PARAM_CONNECTOR.
@@ -99,6 +102,7 @@ def combine_params_dicts(
         baseline_dict (dict): The baseline dictionary.
         new_dict (dict): The dictionary containing new values to be combined.
         scenario_key (str): any scenario key which the values fall under (will be preserved)
+        flatten (bool): whether to flatten nested parameters
 
     Returns:
         Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
@@ -122,11 +126,12 @@ def combine_params_dicts(
         f"Updated keys: {updated_keys}\nNot modified keys: {not_modified_keys}"
     )
 
-    # Flatten dictionary
-    temp_dict_flat = flatten_dict(temp_dict)
+    if flatten:
+        # Flatten dictionary
+        temp_dict = flatten_dict(temp_dict)
 
     # Re-introduce the scenario key
-    combined_dict = {scenario_key: temp_dict_flat}
+    combined_dict = {scenario_key: temp_dict}
 
     return combined_dict, result_string
 
@@ -167,7 +172,7 @@ def load_baseline_params(
 
             # Create baseline_params by updating default_params with baseline_params_input
             return combine_params_dicts(
-                default_params, baseline_params_input, scenario_key
+                default_params, baseline_params_input, scenario_key, flatten=True
             )
 
         except yaml.YAMLError as e:
