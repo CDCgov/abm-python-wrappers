@@ -15,6 +15,7 @@ from scipy.stats.qmc import Sobol
 # Global character sequence for flattening nested parameters
 FLATTENED_PARAM_CONNECTOR = ">>>"
 
+
 def run_gcm_command_line(
     jar_file,
     yaml_file="./input/config.yaml",
@@ -41,7 +42,7 @@ def run_gcm_command_line(
     )  # TODO: write output to a logfile if needed
 
 
-def flatten_dict(d, parent_key='', sep=FLATTENED_PARAM_CONNECTOR):
+def flatten_dict(d, parent_key="", sep=FLATTENED_PARAM_CONNECTOR):
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -57,18 +58,20 @@ def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
     for key, value in flat_dict.items():
         parts = key.split(sep)
         current_level = result
-        
+
         for part in parts[:-1]:
             if part not in current_level:
-                current_level[part] = {} 
+                current_level[part] = {}
             current_level = current_level[part]
-        
+
         current_level[parts[-1]] = value
 
     return result
 
 
-def gcm_parameters_writer(params: dict, output_type: str = "YAML", unflatten: bool = True) -> str:
+def gcm_parameters_writer(
+    params: dict, output_type: str = "YAML", unflatten: bool = True
+) -> str:
     """
     Converts a dictionary of parameters to the specified output format.
 
@@ -82,7 +85,7 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML", unflatten: bo
 
     if unflatten:
         params = unflatten_dict(params)
-    
+
     if output_type == "YAML":
         params_output = yaml.dump(params)
     # Add more conditions for other output types as needed
@@ -93,7 +96,10 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML", unflatten: bo
 
 
 def combine_params_dicts(
-    baseline_dict: dict, new_dict: dict, scenario_key: str = "baseScenario", flatten: bool = False
+    baseline_dict: dict,
+    new_dict: dict,
+    scenario_key: str = "baseScenario",
+    flatten: bool = False,
 ) -> Tuple[dict, str]:
     """
     Combines two dictionaries by overwriting values in baseline_dict with values from new_dict. It also flattens any nested parameters using FLATTENED_PARAM_CONNECTOR.
@@ -172,7 +178,10 @@ def load_baseline_params(
 
             # Create baseline_params by updating default_params with baseline_params_input
             return combine_params_dicts(
-                default_params, baseline_params_input, scenario_key, flatten=True
+                default_params,
+                baseline_params_input,
+                scenario_key,
+                flatten=True,
             )
 
         except yaml.YAMLError as e:
