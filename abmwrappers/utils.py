@@ -84,7 +84,7 @@ def gcm_parameters_writer(
     """
 
     if unflatten:
-        params = unflatten_dict(params)
+        params = {key: unflatten_dict(value) for key, value in params.items()}
 
     if output_type == "YAML":
         params_output = yaml.dump(params)
