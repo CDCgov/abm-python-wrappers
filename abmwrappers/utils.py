@@ -13,7 +13,8 @@ from cfa_azure.clients import AzureClient
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
 
-def run_model_command_line(cmd: list, model_type:str, recompile=False):
+
+def run_model_command_line(cmd: list, model_type: str, recompile=False):
     if model_type == "gcm":
         if recompile:
             subprocess.run(["mvn", "clean", "package"], check=True)
@@ -31,24 +32,46 @@ def run_model_command_line(cmd: list, model_type:str, recompile=False):
             stderr=subprocess.DEVNULL,
         )
     else:
-        raise ValueError(f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'")
+        raise ValueError(
+            f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
+        )
+
 
 def write_default_cmd(
-        simulation_dir: str,
-        model_type: str,
-        exe_file: str,
-        ):
+    simulation_dir: str,
+    model_type: str,
+    exe_file: str,
+):
     output_dir = os.path.join(simulation_dir, "output")
     if model_type == "gcm":
         input_file = os.path.join(simulation_dir, f"input.yaml")
-        cmd = ["java", "-jar", exe_file, "-i", input_file, "-o", output_dir, "-t", "4"]
+        cmd = [
+            "java",
+            "-jar",
+            exe_file,
+            "-i",
+            input_file,
+            "-o",
+            output_dir,
+            "-t",
+            "4",
+        ]
     elif model_type == "ixa":
         input_file = os.path.join(simulation_dir, f"input.json")
-        cmd = [f"./{exe_file}", "--config", f"./{input_file}", "--prefix", f"{output_dir}/"]
+        cmd = [
+            f"./{exe_file}",
+            "--config",
+            f"./{input_file}",
+            "--prefix",
+            f"{output_dir}/",
+        ]
     else:
-        raise ValueError(f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'")
+        raise ValueError(
+            f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
+        )
 
     return cmd
+
 
 def parameters_writer(params: dict, output_type: str = "YAML") -> str:
     """

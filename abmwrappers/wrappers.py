@@ -223,13 +223,14 @@ def experiments_writer(
         with open(full_params_path, "w") as f:
             f.write(full_params_json)
 
+
 def run_local_simulation(
-        simulation_dir, 
-        model_type: str, 
-        exe_file, 
-        cmd: list = None, 
-        recompile=False
-        ):
+    simulation_dir,
+    model_type: str,
+    exe_file,
+    cmd: list = None,
+    recompile=False,
+):
     if cmd is None:
         cmd = utils.write_default_cmd(simulation_dir, model_type, exe_file)
     utils.run_model_command_line(cmd, model_type, recompile)
