@@ -16,7 +16,7 @@ def experiments_writer(
     super_experiment_name: str,
     sub_experiment_name: str,
     simulations_dict,
-    model="gcm",
+    model_type="gcm",
     scenario_key="baseScenario",
     input_data_type: str = "YAML",
     azure_batch: bool = False,
@@ -34,7 +34,7 @@ def experiments_writer(
         super_experiment_name (str): Name of the super experiment.
         sub_experiment_name (str): Name of the sub experiment.
         simulations_dict (dict): Dictionary containing simulation parameters.
-        model (str): "gcm" or "ixa" (default is "gcm", will check for executeable type to be sure).
+        model_type (str): "gcm" or "ixa" (default is "gcm", will check for executeable type to be sure).
         scenario_key (str): Key for the scenario to be used in the input file (default is "baseScenario").
         input_data_type (str): Type of input data file (default is "YAML").
         azure_batch (bool): Whether to use Azure Batch for processing.
@@ -108,7 +108,7 @@ def experiments_writer(
             )
 
             # For Ixa, update the output_dir
-            if model == "ixa":
+            if model_type == "ixa":
                 sim_params_full["output_dir"] = os.path.join(
                     simulation_folder_path
                 )
@@ -197,7 +197,7 @@ def experiments_writer(
             )
 
             # For Ixa, update the output_dir and create the folder if needed
-            if model == "ixa":
+            if model_type == "ixa":
                 sim_params_full["output_dir"] = os.path.join(
                     simulation_folder, "output"
                 )
@@ -223,29 +223,23 @@ def experiments_writer(
         with open(full_params_path, "w") as f:
             f.write(full_params_json)
 
-
-def run_local_simulation(simulation_dir, input_data_type, exe_file):
-    input_file = os.path.join(simulation_dir, f"input.{input_data_type}")
-
-    if exe_file.endswith(".jar"):
-        output_dir = os.path.join(simulation_dir, "output")
-        utils.run_gcm_command_line(
-            exe_file,
-            yaml_file=input_file,
-            output_dir=output_dir,
-            recompile=False,
-        )
-    else:
-        utils.run_ixa_command_line(
-            exe_file,
-            json_file=input_file,
-        )
+def run_local_simulation(
+        simulation_dir, 
+        model_type: str, 
+        exe_file, 
+        cmd: list = None, 
+        recompile=False
+        ):
+    if cmd is None:
+        cmd = utils.write_default_cmd(simulation_dir, model_type, exe_file)
+    utils.run_model_command_line(cmd, model_type, recompile)
 
 
 def experiments_runner(
     experiments_dir: str,
     super_experiment_name: str,
     sub_experiment_name: str,
+    model_type: str = "gcm",
     n_sims: int = None,
     input_data_type: str = "YAML",
     num_processes: int = 8,
@@ -321,7 +315,7 @@ def experiments_runner(
 
             with Pool(num_processes) as pool:
                 args_for_run_simulation = [
-                    (sim_dir, input_data_type, exe_file)
+                    (sim_dir, model_type, exe_file)
                     for sim_dir in simulation_dirs
                 ]
 
@@ -336,7 +330,7 @@ def experiments_runner(
             )
         elif num_processes == 0:
             for sim_dir in simulation_dirs:
-                run_local_simulation(sim_dir, input_data_type, exe_file)
+                run_local_simulation(sim_dir, model_type, exe_file)
 
         else:
             raise ValueError(
@@ -508,8 +502,9 @@ def run_experiment_sequence(
     super_experiment_name: str,
     sub_experiment_name: str,
     simulations_dict: dict,
-    jar_file: str,
+    exe_file: str,
     output_processing_user_function,  # Function for processing outputs
+    model_type: str = "gcm",
     flatten_user_function=None,  # Function to flatten outputs if needed
     num_processes=8,
     azure_batch: bool = False,
@@ -547,6 +542,7 @@ def run_experiment_sequence(
             super_experiment_name,
             sub_experiment_name,
             simulations_dict,
+            model_type=model_type,
             azure_batch=azure_batch,
             azure_client=client,
             blob_container_name=blob_container_name,
@@ -566,9 +562,10 @@ def run_experiment_sequence(
             super_experiment_name,
             sub_experiment_name,
             n_sims=n_sims,
+            model_type=model_type,
             num_processes=num_processes,
             azure_batch=azure_batch,
-            jar_file=jar_file,
+            jar_file=exe_file,
             azure_client=client,
             job_prefix=job_prefix,
         )
