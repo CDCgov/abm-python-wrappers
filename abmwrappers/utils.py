@@ -81,10 +81,22 @@ def combine_params_dicts(
     updated_keys = []
     for key, value in new_dict.items():
         if key not in temp_dict:
-            raise Exception(f"'{key}' not present in default params list.")
+            nested_keys = key.split(".")
 
-        temp_dict[key] = value
-        updated_keys.append(key)
+            if nested_keys[0] in temp_dict:
+                if len(nested_keys) != 2:
+                    raise Exception(
+                        "Nested keys must be in the format 'key.subkey'. Only two levels of nesting are supported."
+                    )
+                temp_dict[nested_keys[0]][nested_keys[1]] = value
+                print_key = nested_keys[0]
+            else:
+                raise Exception(f"'{key}' not present in default params list.")
+        else:
+            temp_dict[key] = value
+            print_key = key
+
+        updated_keys.append(print_key)
 
     not_modified_keys = set(temp_dict.keys()) - set(updated_keys)
 
