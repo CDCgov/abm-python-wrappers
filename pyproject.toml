@@ -9,15 +9,9 @@ readme = "README.md"
 python = "^3.10"
 PyYAML = "^6.0.1"
 pre-commit = "^3.7.1"
-chaospy = "^4.3.15"
 scipy = "^1.14.0"
 sobol-seq = "^0.2.0"
-seaborn = "^0.13.2"
-abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
 cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
-pyqt6 = "^6.7.1"
-pyarrow = "^17.0.0"
-tqdm = "^4.66.5"
 polars = "^1.6.0"
 
 
