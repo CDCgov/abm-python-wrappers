@@ -112,7 +112,7 @@ def combine_params_dicts(
         baseline_dict (dict): The baseline dictionary.
         new_dict (dict): The dictionary containing new values to be combined.
         scenario_key (str): any scenario key which the values fall under (will be preserved)
-        flatten (bool): whether to flatten nested parameters
+        unflatten (bool): whether to unflatten nested parameters
 
     Returns:
         Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
@@ -152,6 +152,7 @@ def load_baseline_params(
     default_params_file,
     baseline_params_input,
     scenario_key: str = "baseScenario",
+    unflatten: bool = True,
 ):
     """
     Loads default parameters from a YAML file and updates them with baseline parameters input.
@@ -159,6 +160,8 @@ def load_baseline_params(
     Args:
         default_params_file (str): The path to the YAML file containing default parameters.
         baseline_params_input (file location): A YAML file containing baseline parameter values to update the default parameters with.
+        scenario_key: Which scenario key to use
+        unflatten (bool): whether to unflatten nested parameters
 
     Returns:
          Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
@@ -187,7 +190,7 @@ def load_baseline_params(
                 default_params,
                 baseline_params_input,
                 scenario_key,
-                flatten=True,
+                unflatten,
             )
 
         except yaml.YAMLError as e:
