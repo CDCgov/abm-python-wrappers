@@ -55,7 +55,7 @@ def gcm_experiments_writer(
     if isinstance(
         simulations_dict["simulation_parameter_values"], pl.DataFrame
     ):
-        temp_dict = utils.df_to_nested_dict(
+        temp_dict = utils.df_to_simulation_dict(
             simulations_dict["simulation_parameter_values"]
         )
         simulations_dict["simulation_parameter_values"] = temp_dict
