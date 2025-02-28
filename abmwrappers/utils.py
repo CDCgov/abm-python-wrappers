@@ -152,7 +152,7 @@ def load_baseline_params(
     default_params_file,
     baseline_params_input,
     scenario_key: str = "baseScenario",
-    unflatten: bool = True
+    unflatten: bool = True,
 ):
     """
     Loads default parameters from a YAML file and updates them with baseline parameters input.
@@ -162,7 +162,7 @@ def load_baseline_params(
         baseline_params_input (file location): A YAML file containing baseline parameter values to update the default parameters with.
         scenario_key: Which scenario key to use
         unflatten (bool): whether to unflatten nested parameters
-        
+
     Returns:
          Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
             - The combined dictionary contains the merged key-value pairs from both input dictionaries, with scenario key preserved.
