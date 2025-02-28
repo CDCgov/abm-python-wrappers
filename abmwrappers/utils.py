@@ -12,6 +12,9 @@ from cfa_azure.clients import AzureClient
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
 
+# Global character sequence for flattening nested parameters
+FLATTENED_PARAM_CONNECTOR = ">>>"
+
 
 def run_gcm_command_line(
     jar_file,
@@ -39,7 +42,36 @@ def run_gcm_command_line(
     )  # TODO: write output to a logfile if needed
 
 
-def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
+def flatten_dict(d, parent_key="", sep=FLATTENED_PARAM_CONNECTOR):
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
+    result = {}
+    for key, value in flat_dict.items():
+        nested_elements = key.split(sep)
+        current_level = result
+
+        for part in nested_elements[:-1]:
+            if part not in current_level:
+                current_level[part] = {}
+            current_level = current_level[part]
+
+        current_level[nested_elements[-1]] = value
+
+    return result
+
+
+def gcm_parameters_writer(
+    params: dict, output_type: str = "YAML", unflatten: bool = True
+) -> str:
     """
     Converts a dictionary of parameters to the specified output format.
 
@@ -50,6 +82,10 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
     Returns:
         str: String representation of the parameters in the specified format.
     """
+
+    if unflatten:
+        params = {key: unflatten_dict(value) for key, value in params.items()}
+
     if output_type == "YAML":
         params_output = yaml.dump(params)
     # Add more conditions for other output types as needed
@@ -60,15 +96,23 @@ def gcm_parameters_writer(params: dict, output_type: str = "YAML") -> str:
 
 
 def combine_params_dicts(
-    baseline_dict: dict, new_dict: dict, scenario_key: str = "baseScenario"
+    baseline_dict: dict,
+    new_dict: dict,
+    scenario_key: str = "baseScenario",
+    unflatten: bool = True,
+    sep=FLATTENED_PARAM_CONNECTOR,
 ) -> Tuple[dict, str]:
     """
     Combines two dictionaries by overwriting values in baseline_dict with values from new_dict.
+    new_dict is a flatted input dictionary with keys separated by FLATTENED_PARAM_CONNECTOR.
+    The scenario_key dictionary in baseline_dict is flattened and combined with the input new_dict.
+    The dictionary is by default unflattened before returning.
 
     Args:
         baseline_dict (dict): The baseline dictionary.
         new_dict (dict): The dictionary containing new values to be combined.
         scenario_key (str): any scenario key which the values fall under (will be preserved)
+        flatten (bool): whether to flatten nested parameters
 
     Returns:
         Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
@@ -76,7 +120,10 @@ def combine_params_dicts(
             - The summary string lists the keys that were updated (present in both original dicts),
               keys not modified (present in baseline_dict only), and keys added (present in new_dict only).
     """
+
     temp_dict = baseline_dict[scenario_key]
+
+    temp_dict = flatten_dict(temp_dict, sep=sep)
 
     updated_keys = []
     for key, value in new_dict.items():
@@ -92,8 +139,11 @@ def combine_params_dicts(
         f"Updated keys: {updated_keys}\nNot modified keys: {not_modified_keys}"
     )
 
-    combined_dict = {}
-    combined_dict[scenario_key] = temp_dict
+    if unflatten:
+        temp_dict = unflatten_dict(temp_dict, sep=sep)
+
+    # Re-introduce the scenario key
+    combined_dict = {scenario_key: temp_dict}
 
     return combined_dict, result_string
 
@@ -134,7 +184,10 @@ def load_baseline_params(
 
             # Create baseline_params by updating default_params with baseline_params_input
             return combine_params_dicts(
-                default_params, baseline_params_input, scenario_key
+                default_params,
+                baseline_params_input,
+                scenario_key,
+                flatten=True,
             )
 
         except yaml.YAMLError as e:
@@ -163,16 +216,16 @@ def params_grid_search(param_dict):
     return df
 
 
-def df_to_nested_dict(df):
+def df_to_simulation_dict(df):
     """
-    Convert a Polars DataFrame into a nested dictionary with rows as keys and columns as subkeys.
+    Convert a Polars DataFrame into a simulation dictionary with rows as keys and columns as subkeys.
     If 'simulation' column exists, use it as keys for each row.
 
     Args:
         df (pl.DataFrame): The Polars DataFrame to convert.
 
     Returns:
-        dict: A nested dictionary where each key is an index of the row or value from 'simulation' column,
+        dict: A dictionary where each key is an index of the row or value from 'simulation' column,
               and each value is another dictionary with column names as keys and cell values as values.
 
     Raises:
@@ -186,7 +239,7 @@ def df_to_nested_dict(df):
             raise ValueError("Values in 'simulation' column are not unique.")
 
         # Use 'simulation' values as keys
-        nested_dict = {
+        simulation_dict = {
             row["simulation"]: {
                 col: row[col] for col in df.columns if col != "simulation"
             }
@@ -195,12 +248,12 @@ def df_to_nested_dict(df):
 
     else:
         # Use index as keys
-        nested_dict = {
+        simulation_dict = {
             i: {col: row[col] for col in df.columns}
             for i, row in enumerate(df.to_dicts())
         }
 
-    return nested_dict
+    return simulation_dict
 
 
 def generate_parameter_samples(
