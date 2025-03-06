@@ -66,7 +66,7 @@ def write_default_cmd(
             "--config",
             f"./{input_file}",
             "--prefix",
-            f"{output_dir}/",
+            f"./{output_dir}/",
         ]
     else:
         raise ValueError(
