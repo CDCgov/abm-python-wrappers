@@ -1,5 +1,6 @@
 import base64
 import itertools
+import json
 import os
 import subprocess
 import warnings
@@ -16,30 +17,63 @@ from scipy.stats.qmc import Sobol
 FLATTENED_PARAM_CONNECTOR = ">>>"
 
 
-def run_gcm_command_line(
-    jar_file,
-    yaml_file="./input/config.yaml",
-    output_dir="output",
-    gcm_threads=4,
-    recompile=False,
+def run_model_command_line(cmd: list, model_type: str, recompile=False):
+    if model_type == "gcm":
+        if recompile:
+            subprocess.run(["mvn", "clean", "package"], check=True)
+        subprocess.run(
+            cmd,
+            check=True,
+        )
+    elif model_type == "ixa":
+        if recompile:
+            subprocess.run(["cargo", "build", "--release"], check=True)
+        subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
+        )
+
+
+def write_default_cmd(
+    simulation_dir: str,
+    model_type: str,
+    exe_file: str,
 ):
-    if recompile:
-        subprocess.run(["mvn", "clean", "package"], check=True)
-    gcm_command = [
-        "java",
-        "-jar",
-        jar_file,
-        "-i",
-        yaml_file,
-        "-o",
-        output_dir,
-        "-t",
-        str(gcm_threads),
-    ]
-    subprocess.run(
-        gcm_command,
-        check=True,
-    )  # TODO: write output to a logfile if needed
+    output_dir = os.path.join(simulation_dir, "output")
+    if model_type == "gcm":
+        input_file = os.path.join(simulation_dir, "input.yaml")
+        cmd = [
+            "java",
+            "-jar",
+            exe_file,
+            "-i",
+            input_file,
+            "-o",
+            output_dir,
+            "-t",
+            "4",
+        ]
+    elif model_type == "ixa":
+        input_file = os.path.join(simulation_dir, "input.json")
+        cmd = [
+            f"./{exe_file}",
+            "--config",
+            f"./{input_file}",
+            "--prefix",
+            f"{output_dir}/",
+        ]
+    else:
+        raise ValueError(
+            f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
+        )
+
+    return cmd
 
 
 def flatten_dict(d, parent_key="", sep=FLATTENED_PARAM_CONNECTOR):
@@ -88,7 +122,8 @@ def gcm_parameters_writer(
 
     if output_type == "YAML":
         params_output = yaml.dump(params)
-    # Add more conditions for other output types as needed
+    elif output_type == "json":
+        params_output = json.dumps(params, indent=4)
     else:
         raise ValueError(f"Unsupported output type: {output_type}")
 
@@ -155,7 +190,7 @@ def load_baseline_params(
     unflatten: bool = True,
 ):
     """
-    Loads default parameters from a YAML file and updates them with baseline parameters input.
+    Loads default parameters from a YAML or JSON file and updates them with baseline parameters input.
 
     Args:
         default_params_file (str): The path to the YAML file containing default parameters.
@@ -172,12 +207,25 @@ def load_baseline_params(
     Raises:
         FileNotFoundError: If the specified default_params_file does not exist or cannot be opened.
         yaml.YAMLError: If there is an error parsing the YAML file.
+        json.JSONDecodeError: If there is an error parsing the JSON file.
         TypeError: If either of the inputs is not a dictionary.
     """
     # Attempt to read the default parameters from file
     with open(default_params_file, "r") as file:
         try:
-            default_params = yaml.safe_load(file)
+            if default_params_file.lower().endswith(
+                ".yaml"
+            ) or default_params_file.lower().endswith(".yml"):
+                default_params = yaml.safe_load(file)
+
+            elif default_params_file.lower().endswith(".json"):
+                default_params = json.load(file)
+
+            else:
+                raise ValueError(
+                    "Unsupported file type. Only YAML and JSON are supported."
+                )
+
             if not isinstance(default_params, dict):
                 raise TypeError(
                     "Default parameters loaded are not a dictionary."
@@ -195,6 +243,8 @@ def load_baseline_params(
 
         except yaml.YAMLError as e:
             raise yaml.YAMLError(f"Error reading YAML file: {e}")
+        except json.JSONDecodeError as e:
+            raise json.JSONDecodeError(f"Error reading JSON file: {e}")
 
 
 def params_grid_search(param_dict):
