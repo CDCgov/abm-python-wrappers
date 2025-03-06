@@ -16,6 +16,7 @@ from scipy.stats.qmc import Sobol
 # Global character sequence for flattening nested parameters
 FLATTENED_PARAM_CONNECTOR = ">>>"
 
+
 def run_model_command_line(cmd: list, model_type: str, recompile=False):
     if model_type == "gcm":
         if recompile:
