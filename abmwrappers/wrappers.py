@@ -343,7 +343,9 @@ def experiments_runner(
         if num_processes > 0:
             start_time = time.time()
 
-            run_pool_simulations()
+            run_pool_simulations(
+                simulation_dirs, model_type, exe_file, num_processes
+            )
 
             duration = time.time() - start_time
             print("Total run time:", round(duration, 2), "seconds")
