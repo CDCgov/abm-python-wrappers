@@ -232,8 +232,37 @@ def run_local_simulation(
     recompile=False,
 ):
     if cmd is None:
-        cmd = utils.write_default_cmd(simulation_dir, model_type, exe_file)
+        output_dir, cmd = utils.write_default_cmd(
+            simulation_dir, model_type, exe_file
+        )
+        os.makedirs(output_dir, exist_ok=True)
     utils.run_model_command_line(cmd, model_type, recompile)
+
+
+def run_pool_simulations(
+    simulation_dirs: list,
+    model_type: str,
+    exe_file,
+    num_processes: int = 8,
+):
+    """
+    Run simulations in parallel using multiprocessing.
+
+    Args:
+        simulation_dirs (list): List of directories for each simulation.
+        model_type (str): Type of model to run (e.g., "gcm", "ixa").
+        exe_file (str): Path to the executable file for the model.
+        num_processes (int): Number of processes to use for parallel execution.
+
+    Returns:
+        None
+    """
+
+    with Pool(processes=num_processes) as pool:
+        pool.starmap(
+            run_local_simulation,
+            [(sim_dir, model_type, exe_file) for sim_dir in simulation_dirs],
+        )
 
 
 def experiments_runner(
@@ -314,13 +343,9 @@ def experiments_runner(
         if num_processes > 0:
             start_time = time.time()
 
-            with Pool(num_processes) as pool:
-                args_for_run_simulation = [
-                    (sim_dir, model_type, exe_file)
-                    for sim_dir in simulation_dirs
-                ]
-
-                pool.starmap(run_local_simulation, args_for_run_simulation)
+            run_pool_simulations(
+                simulation_dirs, model_type, exe_file, num_processes
+            )
 
             duration = time.time() - start_time
             print("Total run time:", round(duration, 2), "seconds")

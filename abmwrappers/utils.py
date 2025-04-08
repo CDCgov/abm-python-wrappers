@@ -17,7 +17,9 @@ from scipy.stats.qmc import Sobol
 FLATTENED_PARAM_CONNECTOR = ">>>"
 
 
-def run_model_command_line(cmd: list, model_type: str, recompile=False):
+def run_model_command_line(
+    cmd: list, model_type: str, recompile=False, overwrite=True
+):
     if model_type == "gcm":
         if recompile:
             subprocess.run(["mvn", "clean", "package"], check=True)
@@ -28,6 +30,8 @@ def run_model_command_line(cmd: list, model_type: str, recompile=False):
     elif model_type == "ixa":
         if recompile:
             subprocess.run(["cargo", "build", "--release"], check=True)
+        if overwrite:
+            cmd.append("--force-overwrite")
         subprocess.run(
             cmd,
             check=True,
@@ -66,14 +70,14 @@ def write_default_cmd(
             "--config",
             f"./{input_file}",
             "--prefix",
-            f"{output_dir}/",
+            f"./{output_dir}/",
         ]
     else:
         raise ValueError(
             f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
         )
 
-    return cmd
+    return (output_dir, cmd)
 
 
 def flatten_dict(d, parent_key="", sep=FLATTENED_PARAM_CONNECTOR):
