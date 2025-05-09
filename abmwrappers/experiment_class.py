@@ -180,7 +180,12 @@ class Experiment:
 
         # Save prior distribution for use in experiment and draw
         if prior_distribution_dict is not None:
-            prior_distribution_dict = self.priors
+            if self.priors is not None and self.priors is not prior_distribution_dict:
+                raise ValueError(
+                    "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
+                )
+            self.priors = prior_distribution_dict
+        
         if self.priors:
             input_df = abc_methods.draw_simulation_parameters(
                 params_inputs=self.priors,
@@ -190,7 +195,7 @@ class Experiment:
             )
         else:
             raise ValueError(
-                "Prior distribution not specified on expeirment initiation or on simbundledeclaration."
+                "Prior distribution not specified on expeirment initiation or on simbundle declaration."
             )
 
         # Create simulation bundle
