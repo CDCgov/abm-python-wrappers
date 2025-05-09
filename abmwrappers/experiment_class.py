@@ -87,7 +87,7 @@ class Experiment:
             )
 
         if self.directory == self.experiments_path:
-            os.makedirs(specified_experiment_path, exists_ok=True)
+            os.makedirs(specified_experiment_path, exist_ok=True)
             print(
                 f"Writing experiment config file to {specified_experiment_path}"
             )
