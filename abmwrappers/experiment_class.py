@@ -318,7 +318,7 @@ class Experiment:
         simulation_index: int,
         write_inputs_cmd: str = None,
         scenario_key: str = "baseline_parameters",
-    ):
+    ) -> str:
         """
         Write a single simulation's input file
         :param simulation_index: The index of the simulation to write
@@ -370,12 +370,18 @@ class Experiment:
             )
             with open(os.path.join(input_dir, input_file_name), "w") as f:
                 f.write(formatted_inputs)
+            return os.path.join(input_dir, input_file_name)
         else:
-            # Use the command line to write the inputs
+            # Use the command line to write the inputs from a preprocessing script
+            # UNSTABLE
+            print(
+                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml"
+            )
             formatted_inputs = utils.gcm_parameters_writer(
                 params=simulation_params, output_type="YAML", unflatten=False
             )
             with open(os.path.join(input_dir, "base.yaml"), "w") as f:
                 f.write(formatted_inputs)
             subprocess.run(write_inputs_cmd.split(), check=True)
+            return input_dir
 
