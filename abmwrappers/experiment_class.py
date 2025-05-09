@@ -339,6 +339,13 @@ class Experiment:
         input_dict = utils.df_to_simulation_dict(
             sim_bundle.inputs
         )
+       
+        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
+        input_dict[simulation_index]["seed"] = input_dict[simulation_index].pop(
+            "randomSeed"
+        )
+
+
         simulation_params, _summary_string = utils.combine_params_dicts(
             sim_bundle.baseline_params,
             input_dict[simulation_index],
