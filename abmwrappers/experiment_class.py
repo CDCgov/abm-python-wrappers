@@ -313,14 +313,22 @@ class Experiment:
         self.simulation_bundles[new_bundle.step_number] = new_bundle
         self.current_step += 1
 
-    def run_single_current_simulation(
+    def write_simulation_inputs_to_file(
         self,
         simulation_index: int,
         write_inputs_cmd: str = None,
         scenario_key: str = "baseline_parameters",
     ):
         """
-        Run a single simulation for the current step
+        Write a single simulation's input file
+        :param simulation_index: The index of the simulation to write
+        :param write_inputs_cmd: The command to run that sources outside code to transform
+            a base yaml file into readable inputs for execution
+            A default of None will return only the formatted inputs from the simulation bundle
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary
+
+        In general, self.directory/data/input for simulation input files
+        Use a tmp space for files that are intermediate products
         """
         if self.current_step not in self.simulation_bundles:
             raise ValueError(
@@ -334,7 +342,7 @@ class Experiment:
             scenario_key=scenario_key,
         )
 
-        input_dir = os.path.join(self.directory, "input")
+        input_dir = os.path.join(self.data_path, "input")
         os.makedirs(input_dir, exist_ok=True)
 
         input_file_name = (
@@ -361,5 +369,3 @@ class Experiment:
                 f.write(formatted_inputs)
             subprocess.run(write_inputs_cmd.split(), check=True)
 
-        # use self.directory/input for simulation input files
-        # use tmp for temp files
