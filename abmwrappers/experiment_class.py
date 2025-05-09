@@ -336,9 +336,12 @@ class Experiment:
             )
 
         sim_bundle = self.simulation_bundles[self.current_step]
+        input_dict = utils.df_to_simulation_dict(
+            sim_bundle.inputs
+        )
         simulation_params, _summary_string = utils.combine_params_dicts(
             sim_bundle.baseline_params,
-            sim_bundle.inputs[simulation_index],
+            input_dict[simulation_index],
             scenario_key=scenario_key,
         )
 
