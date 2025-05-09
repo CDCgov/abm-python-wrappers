@@ -180,12 +180,15 @@ class Experiment:
 
         # Save prior distribution for use in experiment and draw
         if prior_distribution_dict is not None:
-            if self.priors is not None and self.priors is not prior_distribution_dict:
+            if (
+                self.priors is not None
+                and self.priors is not prior_distribution_dict
+            ):
                 raise ValueError(
                     "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
                 )
             self.priors = prior_distribution_dict
-        
+
         if self.priors:
             input_df = abc_methods.draw_simulation_parameters(
                 params_inputs=self.priors,
@@ -206,7 +209,7 @@ class Experiment:
         )
 
         # Add simulation bundle to dictionary
-        self.simulation_bundles[sim_bundle.bundle_id] = sim_bundle
+        self.simulation_bundles[sim_bundle.step_number] = sim_bundle
         self.current_step = 0
 
         return sim_bundle
@@ -307,7 +310,7 @@ class Experiment:
         )
 
         # Add simulation bundle to dictionary
-        self.simulation_bundles[new_bundle.bundle_id] = new_bundle
+        self.simulation_bundles[new_bundle.step_number] = new_bundle
         self.current_step += 1
 
     def run_single_current_simulation(
