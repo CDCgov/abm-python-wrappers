@@ -31,7 +31,6 @@ class Experiment:
         self.experiments_path = experiments_directory
         self.directory = os.path.dirname(config_file)
 
-
         if self.directory.endswith("input") or self.directory.endswith(
             "input/"
         ):

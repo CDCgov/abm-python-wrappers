@@ -332,103 +332,55 @@ def run_pool_simulations(
         )
 
 
-def experiments_runner(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    model_type: str = "gcm",
-    n_sims: int = None,
-    input_data_type: str = "YAML",
-    num_processes: int = 8,
-    azure_batch: bool = False,
-    exe_file: str = None,
-    azure_client: AzureClient = None,
-    job_prefix: str = "",
+def experiment_runner(
+    experiment: experiment_class.Experiment,
+    data_processing_fn: Callable,
+    distance_fn: Callable,
+    prior_distribution_dict: dict = None,
+    perturbation_kernels: dict = None,
+    changed_baseline_params: dict = {},
 ):
-    """
-    Runs GCM experiments either locally or on Azure Batch.
-
-    Args:
-        experiments_dir (str): Directory for experiments.
-        super_experiment_name (str): Name of the super experiment.
-        sub_experiment_name (str): Name of the sub experiment.
-        n_sims (int): Number of simulations
-        input_data_type (str): data type of GCM input file
-        azure_batch (bool): Whether to use Azure Batch for processing.
-        exe_file (str): Path to the file (GCM JAR file or Ixa file) for running the simulations.
-        azure_client (AzureClient): Azure client instance for interacting with Azure services.
-        job_prefix (str): Prefix to use for job name
-    Returns:
-        None
-    """
-    # Note: Keeping Azure Batch and local workflows entirely separate for now, but could restructure later to avoid repitition
-    if azure_batch:
-        if not azure_client:
-            raise ValueError(
-                "AzureClient must be provided when azure_batch is True"
-            )
-
-        # Name and create job
-        job_id = utils.generate_job_name(job_prefix)
-        azure_client.add_job(job_id=job_id)
-
-        # Loop through simulations and add tasks to job
-        for simulation in range(n_sims):
-            # simulation_folder_path = f"{super_experiment_name}/{sub_experiment_name}/simulation_{simulation}"
-            simulation_folder_path = f"/{super_experiment_name}/{sub_experiment_name}/simulation_{simulation}"
-            input_file_name = f"input.{input_data_type}"
-            input_file_path = f"{simulation_folder_path}/{input_file_name}"
-            output_folder = f"{simulation_folder_path}/output/"
-
-            # Create the command to run the simulation
-            docker_cmd = (
-                f"java -jar /app.jar -i {input_file_path} -o {output_folder}"
-            )
-
-            # Add the task to the job
-            azure_client.add_task(job_id=job_id, docker_cmd=docker_cmd)
-
-        # Monitor the job
-        azure_client.monitor_job(job_id=job_id)
-
-    elif not azure_batch:
-        sub_experiment_dir = os.path.join(
-            experiments_dir, super_experiment_name, sub_experiment_name
+    if experiment.current_step == 0 or experiment.current_step is None:
+        experiment.initialize_simbundle(
+            prior_distribution_dict=prior_distribution_dict,
+            changed_baseline_params=changed_baseline_params,
+            scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+            unflatten=False,
         )
 
-        # find simulation subfolders and create full paths
-        items = os.listdir(sub_experiment_dir)
-        simulation_dirs = [
-            os.path.join(sub_experiment_dir, item)
-            for item in items
-            if (
-                os.path.isdir(os.path.join(sub_experiment_dir, item))
-                and item.startswith("simulation_")
-            )
-        ]
+    if experiment.azure_batch:
+        print("Not implemented yet")
 
-        if num_processes > 0:
-            start_time = time.time()
-
-            run_pool_simulations(
-                simulation_dirs, model_type, exe_file, num_processes
-            )
-
-            duration = time.time() - start_time
-            print("Total run time:", round(duration, 2), "seconds")
+    else:
+        for step, tolerance in experiment.tolerance_dict.items():
             print(
-                "Run time per simulation:",
-                round(duration / len(simulation_dirs), 2),
-                "seconds",
+                f"Running step {step} of {len(experiment.tolerance_dict)} with tolerance {tolerance}"
             )
-        elif num_processes == 0:
-            for sim_dir in simulation_dirs:
-                run_local_simulation(sim_dir, model_type, exe_file)
 
-        else:
-            raise ValueError(
-                f"num_processes must be a positive integer or 0. Value: {num_processes}"
-            )
+            current_bundle = experiment.simulation_bundles[
+                experiment.current_step
+            ]
+            if step != experiment.current_step:
+                raise ValueError(
+                    f"Execution has become misaligned from updating. Step {step} does not match current step {experiment.current_step}"
+                )
+
+            if step == max(experiment.tolerance_dict.keys()):
+                products = ["distances", "simulations"]
+            else:
+                products = ["distances"]
+
+            for simulation_index in current_bundle.inputs["simulation"]:
+                products_from_inputs_index(
+                    simulation_index,
+                    experiment=experiment,
+                    data_processing_fn=data_processing_fn,
+                    distance_fn=distance_fn,
+                    products=products,
+                    scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                )
+
+            experiment.resample_for_next_abc_step(perturbation_kernels)
 
 
 def experiments_gatherer(
@@ -588,100 +540,3 @@ def delete_experiment_items(
             os.remove(item_path)
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
-
-
-def run_experiment_sequence(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    simulations_dict: dict,
-    exe_file: str,
-    output_processing_user_function,  # Function for processing outputs
-    model_type: str = "gcm",
-    flatten_user_function=None,  # Function to flatten outputs if needed
-    num_processes=8,
-    azure_batch: bool = False,
-    client: AzureClient = None,  # For Azure Batch
-    blob_container_name: str = None,  # For Azure Batch
-    job_prefix: str = None,  # For Azure Batch
-    run_list: list = ["write", "run", "download", "gather"],
-):
-    """
-    Run GCM workflow including writing experiments, running them,
-    optionally downloading outputs from Azure Batch, and gathering results.
-
-    Args:
-        experiments_dir (str): Directory for experiments.
-        super_experiment_name (str): Name of the super experiment.
-        sub_experiment_name (str): Name of the sub experiment.
-        simulations_dict (dict): Dictionary containing simulation parameters.
-        input_data_type (str): Type of input data file (default is "YAML").
-        jar_file (str): Path to the jar file for running the simulations.
-        azure_batch (bool): Whether to use Azure Batch for processing.
-        apply_func (function): A function to apply to each dataframe.
-        flatten_func (function): A function to apply to the results dictionary.
-        azure_client (AzureClient): Azure client instance for interacting with Azure services.
-        blob_container_name (str): Name of Azure blob (storage) container
-        job_prefix (str): Prefix for naming Azure Batch jobs. Optional.
-        run_list (list): Specify which functions to run. Default is ["write","run","download","gather"].
-
-    Returns:
-        Results DataFrame after gathering all experiment outputs.
-    """
-
-    if "write" in run_list:
-        experiments_writer(
-            experiments_dir,
-            super_experiment_name,
-            sub_experiment_name,
-            simulations_dict,
-            model_type=model_type,
-            azure_batch=azure_batch,
-            azure_client=client,
-            blob_container_name=blob_container_name,
-        )
-
-    # Get the number of simulations
-    if isinstance(
-        simulations_dict["simulation_parameter_values"], pl.DataFrame
-    ):
-        n_sims = simulations_dict["simulation_parameter_values"].height
-    else:
-        n_sims = len(simulations_dict["simulation_parameter_values"].keys())
-
-    if "run" in run_list:
-        experiments_runner(
-            experiments_dir,
-            super_experiment_name,
-            sub_experiment_name,
-            n_sims=n_sims,
-            model_type=model_type,
-            num_processes=num_processes,
-            azure_batch=azure_batch,
-            jar_file=exe_file,
-            azure_client=client,
-            job_prefix=job_prefix,
-        )
-
-    if "download" in run_list:
-        # Download output files if using Azure Batch
-        if azure_batch:
-            download_outputs(
-                experiments_dir,
-                super_experiment_name,
-                sub_experiment_name,
-                n_sims=n_sims,
-                azure_client=client,
-                blob_container_name=blob_container_name,
-            )
-
-    if "gather" in run_list:
-        results_df = experiments_gatherer(
-            experiments_dir,
-            super_experiment_name,
-            sub_experiment_name,
-            output_processing_user_function,
-            flatten_user_function,
-        )
-
-    return results_df
