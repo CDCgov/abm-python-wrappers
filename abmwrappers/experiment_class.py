@@ -43,7 +43,12 @@ class Experiment:
             if os.path.exists(tmp):
                 self.config_file = tmp
                 self.directory = os.path.dirname(tmp)
-                
+
+                if self.directory.ednswith("input") or self.directory.endswith(
+                    "input/"
+                ):
+                    self.directory = os.path.dirname(self.directory)
+
                 if self.directory.startswith("./"):
                     self.directory = os.path.abspath(self.directory)
 
@@ -97,7 +102,7 @@ class Experiment:
                 f"Writing experiment config file to {specified_experiment_path}"
             )
             config_file = os.path.join(
-                specified_experiment_path, "config_abc.yaml"
+                specified_experiment_path, "input", "config_abc.yaml"
             )
             if os.path.exists(config_file):
                 user_input = (
