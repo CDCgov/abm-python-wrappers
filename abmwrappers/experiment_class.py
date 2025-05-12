@@ -313,6 +313,20 @@ class Experiment:
         self.simulation_bundles[new_bundle.step_number] = new_bundle
         self.current_step += 1
 
+    def get_bundle_from_simulation_index(
+        self, simulation_index: int
+    ) -> SimulationBundle:
+        step_id = int(simulation_index / self.n_simulations)
+        if step_id not in self.simulation_bundles:
+            raise ValueError(
+                f"Simulation bundle for step {step_id} not found."
+            )
+        if step_id != self.current_step:
+            raise Warning(
+                f"Index {simulation_index} exists in step {step_id}, which is not the current experiment step {self.current_step}. Proceeding..."
+            )
+        return self.simulation_bundles[step_id]
+
     def write_simulation_inputs_to_file(
         self,
         simulation_index: int,
@@ -330,21 +344,15 @@ class Experiment:
         In general, self.directory/data/input for simulation input files
         Use a tmp space for files that are intermediate products
         """
-        if self.current_step not in self.simulation_bundles:
-            raise ValueError(
-                "No simulation bundle found for the current step."
-            )
 
-        sim_bundle = self.simulation_bundles[self.current_step]
-        input_dict = utils.df_to_simulation_dict(
-            sim_bundle.inputs
-        )
-       
+        sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
+
+        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
+
         # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        input_dict[simulation_index]["seed"] = input_dict[simulation_index].pop(
-            "randomSeed"
-        )
-
+        input_dict[simulation_index]["seed"] = input_dict[
+            simulation_index
+        ].pop("randomSeed")
 
         simulation_params, _summary_string = utils.combine_params_dicts(
             sim_bundle.baseline_params,
@@ -385,3 +393,66 @@ class Experiment:
             subprocess.run(write_inputs_cmd.split(), check=True)
             return input_dir
 
+    def products_from_inputs_index(
+        self,
+        simulation_index: int,
+        distance_fn: function,
+        data_processing_fn: function,
+        products: list = None,
+        scenario_key: str = "baseline_parameters",
+        cmd: str = None,
+        clean: bool = False,
+    ):
+        if products is None:
+            products = ["distances", "simulations"]
+
+        input_file_path = self.write_simulation_inputs_to_file(
+            simulation_index,
+            scenario_key=scenario_key,
+        )
+        simulation_output_path = os.path.join(
+            self.data_path, "raw_output", f"simulation_{simulation_index}"
+        )
+        os.makedirs(simulation_output_path, exist_ok=True)
+
+        # This will require a refactor of the default command line for model run
+        if cmd is None:
+            execute_cmd = f"{self.exe_file} --config ./{input_file_path} --prefix ./{simulation_output_path}/"
+
+        utils.run_model_command_line(
+            execute_cmd.split(), model_type=self.model_type
+        )
+
+        # --------------------------
+        # Process the output (if product contains distances)
+        # --------------------------
+        sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
+
+        sim_bundle.results = {
+            simulation_index: data_processing_fn(simulation_output_path)
+        }
+
+        if "distances" in products:
+            sim_bundle.calculate_distances(self.target_data, distance_fn)
+
+            distance_data_part_path = (
+                f"{self.data_path}/distances/simulation={simulation_index}/"
+            )
+            os.makedirs(distance_data_part_path, exist_ok=True)
+            pl.DataFrame(
+                {"distance": sim_bundle.distances.values()}
+            ).write_parquet(distance_data_part_path + "data.parquet")
+
+        if "simulations" in products:
+            simulation_data_part_path = (
+                f"{self.data_path}/simulations/simulation={simulation_index}/"
+            )
+            os.makedirs(simulation_data_part_path, exist_ok=True)
+            pl.DataFrame(
+                {"simulation": sim_bundle.results[simulation_index]}
+            ).write_parquet(simulation_data_part_path + "data.parquet")
+
+        if clean:
+            # Delete raw_output file if cleaning intermediates
+            for file in os.listdir(simulation_output_path):
+                os.remove(os.path.join(simulation_output_path, file))
