@@ -72,10 +72,12 @@ class Experiment:
             "sub_experiment_name"
         ]
 
-        specified_experiment_path = os.path.join(
-            self.experiments_path,
-            self.super_experiment_name,
-            self.sub_experiment_name,
+        specified_experiment_path = os.path.dirname(
+            os.path.join(
+                self.experiments_path,
+                self.super_experiment_name,
+                self.sub_experiment_name,
+            )
         )
 
         # Check if the config file directory specified is the same as the file string
