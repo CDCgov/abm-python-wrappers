@@ -47,7 +47,7 @@ class Experiment:
                 if self.directory.ednswith("input") or self.directory.endswith(
                     "input/"
                 ):
-                    self.directory = os.path.dirname(self.directory)
+                    self.directory = self.directory.parent
 
                 if self.directory.startswith("./"):
                     self.directory = os.path.abspath(self.directory)
