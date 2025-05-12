@@ -45,13 +45,12 @@ def run_model_command_line(
 
 
 def write_default_cmd(
-    simulation_dir: str,
+    input_file: str,
+    output_dir: str,
     model_type: str,
     exe_file: str,
 ):
-    output_dir = os.path.join(simulation_dir, "output")
     if model_type == "gcm":
-        input_file = os.path.join(simulation_dir, "input.yaml")
         cmd = [
             "java",
             "-jar",
@@ -64,7 +63,6 @@ def write_default_cmd(
             "4",
         ]
     elif model_type == "ixa":
-        input_file = os.path.join(simulation_dir, "input.json")
         cmd = [
             f"./{exe_file}",
             "--config",

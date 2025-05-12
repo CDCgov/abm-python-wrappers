@@ -1,6 +1,7 @@
 import os
 import subprocess
 import warnings
+from typing import Callable
 
 import polars as pl
 import yaml
@@ -396,8 +397,8 @@ class Experiment:
     def products_from_inputs_index(
         self,
         simulation_index: int,
-        distance_fn: function,
-        data_processing_fn: function,
+        distance_fn: Callable,
+        data_processing_fn: Callable,
         products: list = None,
         scenario_key: str = "baseline_parameters",
         cmd: str = None,
@@ -415,22 +416,26 @@ class Experiment:
         )
         os.makedirs(simulation_output_path, exist_ok=True)
 
-        # This will require a refactor of the default command line for model run
+        # This will require the default command line for model run if None
         if cmd is None:
-            execute_cmd = f"{self.exe_file} --config ./{input_file_path} --prefix ./{simulation_output_path}/"
+            cmd = utils.write_default_cmd(
+                input_file=input_file_path,
+                output_dir=simulation_output_path,
+                exe_file=self.exe_file,
+                model_type=self.model_type,
+            )
 
-        utils.run_model_command_line(
-            execute_cmd.split(), model_type=self.model_type
-        )
+        utils.run_model_command_line(cmd, model_type=self.model_type)
 
-        # --------------------------
-        # Process the output (if product contains distances)
-        # --------------------------
         sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
 
         sim_bundle.results = {
             simulation_index: data_processing_fn(simulation_output_path)
         }
+
+        # --------------------------
+        # Process the and store the desired products
+        # --------------------------
 
         if "distances" in products:
             sim_bundle.calculate_distances(self.target_data, distance_fn)
