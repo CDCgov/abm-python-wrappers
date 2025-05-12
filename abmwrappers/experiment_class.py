@@ -1,7 +1,6 @@
 import os
 import subprocess
 import warnings
-from typing import Callable
 
 import polars as pl
 import yaml
@@ -33,10 +32,10 @@ class Experiment:
         self.directory = os.path.dirname(config_file)
 
 
-        if self.directory.ednswith("input") or self.directory.endswith(
+        if self.directory.endswith("input") or self.directory.endswith(
             "input/"
         ):
-            self.directory = self.directory.parent
+            self.directory = os.path.dirname(self.directory)
 
         if self.directory.startswith("./"):
             self.directory = os.path.abspath(self.directory)
