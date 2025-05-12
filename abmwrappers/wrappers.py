@@ -240,8 +240,8 @@ def run_local_simulation(
 
 
 def products_from_inputs_index(
-    experiment: experiment_class.Experiment,
     simulation_index: int,
+    experiment: experiment_class.Experiment,
     distance_fn: Callable,
     data_processing_fn: Callable,
     products: list = None,
