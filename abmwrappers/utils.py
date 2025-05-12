@@ -49,7 +49,7 @@ def write_default_cmd(
     output_dir: str,
     model_type: str,
     exe_file: str,
-):
+) -> list:
     if model_type == "gcm":
         cmd = [
             "java",
@@ -75,7 +75,7 @@ def write_default_cmd(
             f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
         )
 
-    return (output_dir, cmd)
+    return cmd
 
 
 def flatten_dict(d, parent_key="", sep=FLATTENED_PARAM_CONNECTOR):
