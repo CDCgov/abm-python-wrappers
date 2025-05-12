@@ -8,7 +8,7 @@ from typing import Callable
 import polars as pl
 from cfa_azure.clients import AzureClient
 
-from abmwrappers import utils
+from abmwrappers import experiment_class, utils
 
 
 def experiments_writer(
@@ -237,6 +237,73 @@ def run_local_simulation(
         )
         os.makedirs(output_dir, exist_ok=True)
     utils.run_model_command_line(cmd, model_type, recompile)
+
+
+def products_from_inputs_index(
+    experiment: experiment_class.Experiment,
+    simulation_index: int,
+    distance_fn: Callable,
+    data_processing_fn: Callable,
+    products: list = None,
+    scenario_key: str = "baseline_parameters",
+    cmd: str = None,
+    clean: bool = False,
+):
+    if products is None:
+        products = ["distances", "simulations"]
+
+    input_file_path = experiment.write_simulation_inputs_to_file(
+        simulation_index,
+        scenario_key=scenario_key,
+    )
+    simulation_output_path = os.path.join(
+        experiment.data_path, "raw_output", f"simulation_{simulation_index}"
+    )
+    os.makedirs(simulation_output_path, exist_ok=True)
+
+    # This will require the default command line for model run if None
+    if cmd is None:
+        cmd = utils.write_default_cmd(
+            input_file=input_file_path,
+            output_dir=simulation_output_path,
+            exe_file=experiment.exe_file,
+            model_type=experiment.model_type,
+        )
+
+    utils.run_model_command_line(cmd, model_type=experiment.model_type)
+
+    sim_bundle = experiment.get_bundle_from_simulation_index(simulation_index)
+
+    sim_bundle.results = {
+        simulation_index: data_processing_fn(simulation_output_path)
+    }
+
+    # --------------------------
+    # Process the and store the desired products
+    # --------------------------
+
+    if "distances" in products:
+        sim_bundle.calculate_distances(experiment.target_data, distance_fn)
+
+        distance_data_part_path = (
+            f"{experiment.data_path}/distances/simulation={simulation_index}/"
+        )
+        os.makedirs(distance_data_part_path, exist_ok=True)
+        pl.DataFrame(
+            {"distance": sim_bundle.distances.values()}
+        ).write_parquet(distance_data_part_path + "data.parquet")
+
+    if "simulations" in products:
+        simulation_data_part_path = f"{experiment.data_path}/simulations/simulation={simulation_index}/"
+        os.makedirs(simulation_data_part_path, exist_ok=True)
+        pl.DataFrame(
+            {"simulation": sim_bundle.results[simulation_index]}
+        ).write_parquet(simulation_data_part_path + "data.parquet")
+
+    if clean:
+        # Delete raw_output file if cleaning intermediates
+        for file in os.listdir(simulation_output_path):
+            os.remove(os.path.join(simulation_output_path, file))
 
 
 def run_pool_simulations(
