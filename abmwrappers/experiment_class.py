@@ -40,6 +40,7 @@ class Experiment:
             self.directory = os.path.abspath(self.directory)
 
         self.simulation_bundles = {}
+        self.current_step = None
         self.priors = prior_distribution_dict
         self.perturbation_kernel_dict = perturbation_kernel_dict
 
