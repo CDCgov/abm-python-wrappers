@@ -31,6 +31,16 @@ class Experiment:
         self.config_file = config_file
         self.experiments_path = experiments_directory
         self.directory = os.path.dirname(config_file)
+
+
+        if self.directory.ednswith("input") or self.directory.endswith(
+            "input/"
+        ):
+            self.directory = self.directory.parent
+
+        if self.directory.startswith("./"):
+            self.directory = os.path.abspath(self.directory)
+
         self.simulation_bundles = {}
         self.priors = prior_distribution_dict
         self.perturbation_kernel_dict = perturbation_kernel_dict
@@ -43,14 +53,6 @@ class Experiment:
             if os.path.exists(tmp):
                 self.config_file = tmp
                 self.directory = os.path.dirname(tmp)
-
-                if self.directory.ednswith("input") or self.directory.endswith(
-                    "input/"
-                ):
-                    self.directory = self.directory.parent
-
-                if self.directory.startswith("./"):
-                    self.directory = os.path.abspath(self.directory)
 
                 # Warn that config file is modified
                 warnings.warn(
