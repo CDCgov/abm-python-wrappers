@@ -316,7 +316,7 @@ def products_from_inputs_index(
             f"{output_dir}/simulations/simulation={simulation_index}/"
         )
         os.makedirs(simulation_data_part_path, exist_ok=True)
-        
+        print(sim_bundle.results[simulation_index])
         sim_bundle.results[simulation_index].write_parquet(simulation_data_part_path + "data.parquet")
 
     if clean:
