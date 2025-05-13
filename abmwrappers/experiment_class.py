@@ -203,12 +203,13 @@ class Experiment:
             "changed_baseline_params"
             in experimental_config["experiment_conditions"]
         ):
-            self.changed_baseline_params = {
-                k: v
-                for k, v in experimental_config["experiment_conditions"][
+            print(experimental_config["experiment_conditions"][
                     "changed_baseline_params"
-                ].items()
-            }
+                ])
+            self.changed_baseline_params =  experimental_config["experiment_conditions"][
+                    "changed_baseline_params"
+                ]
+            print(self.changed_baseline_params)
         else:
             self.changed_baseline_params = {}
 
