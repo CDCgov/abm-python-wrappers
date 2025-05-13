@@ -1,6 +1,8 @@
 import os
+import pickle
 import subprocess
 import warnings
+from typing import Callable
 
 import polars as pl
 import yaml
@@ -18,52 +20,66 @@ class Experiment:
 
     def __init__(
         self,
-        experiments_directory: str,
-        config_file: str,
+        experiments_directory: str = None,
+        config_file: str = None,
+        img_file: str = None,
         prior_distribution_dict: dict = None,
         perturbation_kernel_dict: dict = None,
+        distance_fn: Callable = None,
+        data_processing_fn: Callable = None,
     ):
         """
         Initialize the experiment with a config file
         :param config_file: Path to the config file
         """
-        self.config_file = config_file
-        self.experiments_path = experiments_directory
-        self.directory = os.path.dirname(config_file)
 
-        if self.directory.endswith("input") or self.directory.endswith(
-            "input/"
-        ):
-            self.directory = os.path.dirname(self.directory)
+        if config_file is None and img_file is None:
+            raise ValueError(
+                "No config file or image file specified. Please provide a config file."
+            )
 
-        if self.directory.startswith("./"):
-            self.directory = os.path.abspath(self.directory)
-
-        self.simulation_bundles = {}
-        self.current_step = None
-        self.priors = prior_distribution_dict
-        self.perturbation_kernel_dict = perturbation_kernel_dict
-
-        if os.path.exists(config_file):
-            self.load_config_params()
+        # If an image .pkl file containing experiment history is supplied, read from that
+        if img_file is not None:
+            self.restore_experiment(img_file)
+        # Otherwise, instantiate a new experiment with load_config_params
         else:
-            # Check if the config file exists in the experiments directory
-            tmp = os.path.join(experiments_directory, config_file)
-            if os.path.exists(tmp):
-                self.config_file = tmp
-                self.directory = os.path.dirname(tmp)
+            self.config_file = config_file
+            self.experiments_path = experiments_directory
+            self.directory = os.path.dirname(config_file)
 
-                # Warn that config file is modified
-                warnings.warn(
-                    f"Config file {config_file} is modified. Using {tmp} instead.",
-                    UserWarning,
-                )
+            if self.directory.endswith("input") or self.directory.endswith(
+                "input/"
+            ):
+                self.directory = os.path.dirname(self.directory)
+
+            if self.directory.startswith("./"):
+                self.directory = os.path.abspath(self.directory)
+
+            self.simulation_bundles = {}
+            self.current_step = None
+            self.priors = prior_distribution_dict
+            self.perturbation_kernel_dict = perturbation_kernel_dict
+
+            if os.path.exists(config_file):
+                self.load_config_params()
             else:
-                raise FileNotFoundError(
-                    f"Config file {config_file} does not exist."
-                )
+                # Check if the config file exists in the experiments directory
+                tmp = os.path.join(experiments_directory, config_file)
+                if os.path.exists(tmp):
+                    self.config_file = tmp
+                    self.directory = os.path.dirname(tmp)
 
-        self.load_config_params()
+                    # Warn that config file is modified
+                    warnings.warn(
+                        f"Config file {config_file} is modified. Using {tmp} instead.",
+                        UserWarning,
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"Config file {config_file} does not exist."
+                    )
+
+            self.load_config_params()
 
     def load_config_params(self):
         """
@@ -403,3 +419,100 @@ class Experiment:
                 f.write(formatted_inputs)
             subprocess.run(write_inputs_cmd.split(), check=True)
             return input_dir
+
+    def compress_and_save(self, output_file: str):
+        """
+        Lossy compression to save a reproducible savepoint
+        Stores all information except for simulation bundle results to compressed pickle file
+        Important to track across steps and reproduce the experiment are
+        Directory data:
+            - config file
+            - directory
+            - data
+            - exe_file
+        Simulation bundle data:
+            - current step
+            - distances
+            - weights
+            - accepted
+            - inputs
+        Experiment data:
+            - tolerance steps
+            - priors
+            - perturbation kernels
+            - replicate counts (particle count and per particle)
+        """
+
+        # Create a dictionary to store the data
+        data = {
+            "config_file": self.config_file,
+            "directory": self.directory,
+            "data_path": self.data_path,
+            "exe_file": self.exe_file,
+            "model_type": self.model_type,
+            "input_file_type": self.input_file_type,
+            "target_data": self.target_data,
+            "seed": self.seed,
+            "n_particles": self.n_particles,
+            "replicates": self.replicates,
+            "skinny_bundles": {
+                step: {
+                    key: value
+                    for key, value in bundle.__dict__.items()
+                    if key != "results"
+                }
+                for step, bundle in self.simulation_bundles.items()
+            },
+            "current_step": self.current_step,
+            "tolerance_dict": self.tolerance_dict,
+            "priors": self.priors,
+            "perturbation_kernel_dict": self.perturbation_kernel_dict,
+            "distance_fn": self.distance_fn,
+            "data_processing_fn": self.data_processing_fn,
+        }
+
+        # Save the data to a compressed pickle file
+        with open(output_file, "wb") as f:
+            pickle.dump(data, f)
+
+    def restore_experiment(self, input_file: str):
+        """
+        Load the experiment from a compressed pickle file
+        :param input_file: The path to the compressed pickle file
+        """
+
+        # Load the data from the compressed pickle file
+        with open(input_file, "rb") as f:
+            data = pickle.load(f)
+
+        # Unpack the data into the experiment object
+        self.config_file = data["config_file"]
+        self.directory = data["directory"]
+        self.data_path = data["data_path"]
+        self.exe_file = data["exe_file"]
+        self.model_type = data["model_type"]
+        self.input_file_type = data["input_file_type"]
+        self.target_data = data["target_data"]
+        self.seed = data["seed"]
+        self.n_particles = data["n_particles"]
+        self.replicates = data["replicates"]
+        self.simulation_bundles = {
+            step: SimulationBundle(**bundle)
+            for step, bundle in data["skinny_bundles"].items()
+        }
+        self.current_step = data["current_step"]
+        self.tolerance_dict = data["tolerance_dict"]
+        self.priors = data["priors"]
+        self.perturbation_kernel_dict = (
+            data["perturbation_kernel_dict"]
+            if "perturbation_kernel_dict" in data
+            else None
+        )
+        self.distance_fn = (
+            data["distance_fn"] if "distance_fn" in data else None
+        )
+        self.data_processing_fn = (
+            data["data_processing_fn"]
+            if "data_processing_fn" in data
+            else None
+        )

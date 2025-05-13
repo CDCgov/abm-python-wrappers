@@ -242,15 +242,25 @@ def run_local_simulation(
 def products_from_inputs_index(
     simulation_index: int,
     experiment: experiment_class.Experiment,
-    distance_fn: Callable,
-    data_processing_fn: Callable,
+    distance_fn: Callable = None,
+    data_processing_fn: Callable = None,
     products: list = None,
+    products_output_dir: str = None,
     scenario_key: str = "baseline_parameters",
     cmd: str = None,
     clean: bool = False,
 ):
     if products is None:
         products = ["distances", "simulations"]
+
+    if distance_fn is None:
+        distance_fn = experiment.distance_fn
+    if data_processing_fn is None:
+        data_processing_fn = experiment.data_processing_fn
+    if distance_fn is None or data_processing_fn is None:
+        raise ValueError(
+            "Distance function and data processing function must be provided if not previously declared in Experiment parameters."
+        )
 
     input_file_path = experiment.write_simulation_inputs_to_file(
         simulation_index,
@@ -281,12 +291,16 @@ def products_from_inputs_index(
     # --------------------------
     # Process the and store the desired products
     # --------------------------
+    if products_output_dir is None:
+        output_dir = experiment.data_path
+    else:
+        output_dir = products_output_dir
 
     if "distances" in products:
         sim_bundle.calculate_distances(experiment.target_data, distance_fn)
 
         distance_data_part_path = (
-            f"{experiment.data_path}/distances/simulation={simulation_index}/"
+            f"{output_dir}/distances/simulation={simulation_index}/"
         )
         os.makedirs(distance_data_part_path, exist_ok=True)
         pl.DataFrame(
@@ -294,7 +308,9 @@ def products_from_inputs_index(
         ).write_parquet(distance_data_part_path + "data.parquet")
 
     if "simulations" in products:
-        simulation_data_part_path = f"{experiment.data_path}/simulations/simulation={simulation_index}/"
+        simulation_data_part_path = (
+            f"{output_dir}/simulations/simulation={simulation_index}/"
+        )
         os.makedirs(simulation_data_part_path, exist_ok=True)
         pl.DataFrame(
             {"simulation": sim_bundle.results[simulation_index]}
@@ -339,6 +355,7 @@ def experiment_runner(
     prior_distribution_dict: dict = None,
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
+    files_to_upload: list = [],
 ):
     if experiment.current_step == 0 or experiment.current_step is None:
         experiment.initialize_simbundle(
@@ -349,7 +366,87 @@ def experiment_runner(
         )
 
     if experiment.azure_batch:
-        print("Not implemented yet")
+        print("Not fully implemented yet")
+        (
+            client,
+            blob_container_name,
+            job_prefix,
+        ) = utils.initialize_azure_client(
+            experiment.azb_config_path,
+            experiment.super_experiment_name,
+            experiment.create_pool,
+        )
+
+        # Create experiment history file to Azure Blob Storage for initializing each step
+        # If a compressed history already exists, offer off-ramp for user to abort
+        experiment_file = os.path.join(
+            experiment.data_path, "experiment_history.pkl"
+        )
+        if os.path.exists(experiment_file):
+            user_input = (
+                input(
+                    f"Experiment compressed history already exists. Overwrite experiment? (Y/N): "
+                )
+                .strip()
+                .upper()
+            )
+            if user_input != "Y":
+                print("Experiment terminated by user.")
+                return
+
+        experiment.compress_and_save(experiment_file)
+        files_to_upload.append(experiment_file)
+
+        # Initialize Azure client
+        if client and blob_container_name and job_prefix:
+            print("Azure client initialized successfully.")
+        else:
+            raise ValueError(
+                "Failed to initialize Azure client. Check your configuration."
+            )
+
+        job_name = utils.generate_job_name(job_prefix)
+        client.add_job(job_name, task_id_ints=True)
+        client.monitor_job(job_name, timeout=36000)
+
+        # Upload the experiment history file to Azure Blob Storage along with any included files
+        client.upload_files(
+            files_to_upload,
+            blob_container_name,
+            experiment.sub_experiment_name,
+        )
+
+        gather_task_id = None
+        for step, tolerance in experiment.tolerance_dict.items():
+            tasks_id_range = []
+
+            task_i_cmd = "Not implemented"
+
+            for simulation_index in range(experiment.n_simulations):
+                print("Not implemented")
+                sim_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=task_i_cmd,
+                    depends_on=gather_task_id,
+                )
+                if simulation_index in (0, experiment.n_simulations - 1):
+                    tasks_id_range.append(sim_task_id)
+
+            task_range = tuple(tasks_id_range)
+            gather_task_cmd = "Not implemented"
+
+            gather_task_id = client.add_task(
+                job_id=job_name,
+                docker_cmd=gather_task_cmd,
+                depends_on=task_range,
+            )
+
+        client.download_file(
+            src_path=os.path.join(
+                experiment.sub_experiment_name, "experiment_history.pkl"
+            ),
+            dest_path=experiment_file,
+        )
 
     else:
         for step, tolerance in experiment.tolerance_dict.items():
@@ -383,77 +480,30 @@ def experiment_runner(
             experiment.resample_for_next_abc_step(perturbation_kernels)
 
 
-def experiments_gatherer(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    apply_func: Callable,
-    flatten_func: Callable = None,
-    sims_filter: int = None,
+def abcsmc_update_compressed_experiment(
+    experiment_file: str,
+    distance_path: str,
 ):
     """
-    Gathers data from GCM experiments by applying a specified lambda function to a specific file across all simulations.
+    Update a compressed experiment file with distances stored as a .parquet Hive partition from a specified path.
 
     Args:
-        experiments_dir (str): Directory for experiments.
-        super_experiment_name (str): Name of the super experiment.
-        sub_experiment_name (str): Name of the sub experiment.
-        apply_func (function): A function to apply to each dataframe.
-        flatten_func (function): A function to apply to the results dictionary.
-        sims_filter (int):
+        experiment_file (str): Path to the compressed experiment file.
+        distance_path (str): Path to the distance data.
 
     Returns:
-        dict or list or DataFrame: Depending on 'flatten_func', either a dictionary with simulation number as key and
-                                   processed data as value, or a flattened list/DataFrame of all processed data depending
-                                   on the specifics of apply_func.
+        None
     """
 
-    # Define subexperiment directory
-    sub_experiment_dir = os.path.join(
-        experiments_dir, super_experiment_name, sub_experiment_name
-    )
+    # Load the compressed experiment
+    experiment = experiment_class.Experiment(img_file=experiment_file)
 
-    if sims_filter is None:
-        # Find simulation subfolders
-        items = os.listdir(sub_experiment_dir)
-        simulation_folders = [
-            item
-            for item in items
-            if (
-                os.path.isdir(os.path.join(sub_experiment_dir, item))
-                and item.startswith("simulation_")
-            )
-        ]
-    else:
-        # Define simulation subfolders using sims_filter
-        simulation_folders = [f"simulation_{num}" for num in sims_filter]
+    # Load the distances
+    experiment.read_parquet_data_to_current_step(input_dir=distance_path)
+    experiment.resample_for_next_abc_step()
 
-    with open(
-        os.path.join(sub_experiment_dir, "full_params_list_all_sims.json"), "r"
-    ) as file:
-        master_params_dict = json.load(file)
-
-    # Initialize results container
-    results = {
-        "data": {},
-        "parameters": master_params_dict["simulation_parameter_values"],
-    }
-
-    # Loop through simulation folders
-    for simulation_folder in simulation_folders:
-        outputs_dir = os.path.join(
-            sub_experiment_dir, simulation_folder, "output"
-        )
-
-        simulation_number = int(simulation_folder.split("_")[1])
-        # Apply user-specified function and add to dictionary
-        results["data"][simulation_number] = apply_func(outputs_dir)
-
-    # Apply user-specified flattening function if appropriate and return results
-    if flatten_func is not None:
-        return flatten_func(results)
-    else:
-        return results
+    # Save the updated experiment
+    experiment.compress_and_save(experiment_file)
 
 
 def download_outputs(
