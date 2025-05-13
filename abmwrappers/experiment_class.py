@@ -193,6 +193,11 @@ class Experiment:
         else:
             self.tolerance_dict = None
 
+        # In simulation parameter changes can be specified through config or appended later in helper functions
+        # Scenario key must be declared to access the parameter set of interest in the input file
+        self.scenario_key = experimental_config["experiment_conditions"][
+            "scenario_key"
+        ]
         if (
             "changed_baseline_params"
             in experimental_config["experiment_conditions"]
@@ -230,7 +235,7 @@ class Experiment:
         self,
         prior_distribution_dict: dict = None,
         changed_baseline_params: dict = {},
-        scenario_key: str = "baseline_parameters",
+        scenario_key: str = None,
         unflatten: bool = True,
     ) -> SimulationBundle:
         if changed_baseline_params.len() > 0:
@@ -239,6 +244,8 @@ class Experiment:
             )
             self.changed_baseline_params.update(changed_baseline_params)
 
+        if scenario_key is None:
+            scenario_key = self.scenario_key
         # Create baseline_params by updating default params
         baseline_params, _summary_string = utils.load_baseline_params(
             self.default_params_file,
@@ -400,7 +407,7 @@ class Experiment:
         self,
         simulation_index: int,
         write_inputs_cmd: str = None,
-        scenario_key: str = "baseline_parameters",
+        scenario_key: str = None,
     ) -> str:
         """
         Write a single simulation's input file
@@ -408,7 +415,7 @@ class Experiment:
         :param write_inputs_cmd: The command to run that sources outside code to transform
             a base yaml file into readable inputs for execution
             A default of None will return only the formatted inputs from the simulation bundle
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
 
         In general, self.directory/data/input for simulation input files
         Use a tmp space for files that are intermediate products
@@ -422,6 +429,10 @@ class Experiment:
         input_dict[simulation_index]["seed"] = input_dict[
             simulation_index
         ].pop("randomSeed")
+
+        # If scenario key is not specified, use the default scenario key
+        if scenario_key is None:
+            scenario_key = self.scenario_key
 
         simulation_params, _summary_string = utils.combine_params_dicts(
             sim_bundle.baseline_params,

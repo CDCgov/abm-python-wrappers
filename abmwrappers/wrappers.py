@@ -355,13 +355,16 @@ def abcsmc_experiment_runner(
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
     files_to_upload: list = [],
-    scenario_key: str = "baseScenario",
+    scenario_key: str = None,
 ):
+    if scenario_key is None:
+        scenario_key = experiment.scenario_key
+
     if experiment.current_step == 0 or experiment.current_step is None:
         experiment.initialize_simbundle(
             prior_distribution_dict=prior_distribution_dict,
             changed_baseline_params=changed_baseline_params,
-            scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+            scenario_key=scenario_key,
             unflatten=False,
         )
 
@@ -487,7 +490,7 @@ def abcsmc_experiment_runner(
                     data_processing_fn=data_processing_fn,
                     distance_fn=distance_fn,
                     products=products,
-                    scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                    scenario_key=scenario_key,
                 )
 
             experiment.resample_for_next_abc_step(perturbation_kernels)
