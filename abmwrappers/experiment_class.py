@@ -471,13 +471,12 @@ class Experiment:
             f"simulation_{simulation_index}.{self.input_file_type}"
         )
 
-        if (
-            write_inputs_cmd is None
-            and simulation_index % self.n_simulations == 0
-        ):
-            print(
-                "No preprocessing step supplied to transform input parameters. Printing directly to file"
-            )
+        if (write_inputs_cmd is None):
+            
+            if simulation_index % self.n_simulations == 0:
+                print(
+                    "No preprocessing step supplied to transform input parameters. Printing directly to file"
+                )
             formatted_inputs = utils.gcm_parameters_writer(
                 params=simulation_params,
                 output_type=self.input_file_type,
@@ -489,8 +488,9 @@ class Experiment:
         else:
             # Use the command line to write the inputs from a preprocessing script
             # UNSTABLE
-            print(
-                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml"
+            warnings.warn(
+                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml",
+                UserWarning,
             )
             formatted_inputs = utils.gcm_parameters_writer(
                 params=simulation_params, output_type="YAML", unflatten=False
