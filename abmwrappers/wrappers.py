@@ -245,7 +245,7 @@ def products_from_inputs_index(
     data_processing_fn: Callable = None,
     products: list = None,
     products_output_dir: str = None,
-    scenario_key: str = "baseline_parameters",
+    scenario_key: str = None,
     cmd: str = None,
     clean: bool = False,
 ):
