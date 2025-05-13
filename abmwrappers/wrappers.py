@@ -1,226 +1,12 @@
-import json
 import os
-import shutil
 from multiprocessing import Pool
 from typing import Callable
 
 import polars as pl
 from cfa_azure.clients import AzureClient
 
-from abmwrappers import experiment_class, utils
-
-
-def experiments_writer(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    simulations_dict,
-    model_type="gcm",
-    scenario_key="baseScenario",
-    input_data_type: str = "YAML",
-    azure_batch: bool = False,
-    azure_client: AzureClient = None,
-    blob_container_name: str = None,
-    delete_existing: bool = True,
-    params_as_files_function_dict: dict = None,
-):
-    """
-    Accepts sub-experiment specifications, samples from the parameter sweep value range
-    using a specified method, and writes out input files (yaml or other)
-
-    Args:
-        experiments_dir (str): Directory for experiments.
-        super_experiment_name (str): Name of the super experiment.
-        sub_experiment_name (str): Name of the sub experiment.
-        simulations_dict (dict): Dictionary containing simulation parameters.
-        model_type (str): "gcm" or "ixa" (default is "gcm", will check for executeable type to be sure).
-        scenario_key (str): Key for the scenario to be used in the input file (default is "baseScenario").
-        input_data_type (str): Type of input data file (default is "YAML").
-        azure_batch (bool): Whether to use Azure Batch for processing.
-        azure_client (AzureClient): Azure client instance for interacting with Azure services.
-        blob_container_name (str): Name of Azure blob (storage) container.
-        delete_existing (bool): Flag to delete existing sub experiment.
-        params_as_files_function_dict (dict): A dictionary of parameter name/function pairs, where the function is passed the parameter value and returns the file name and file content needed.
-    Returns:
-        None
-    """
-    # Note: Keeping Azure Batch and local workflows entirely separate for now, but could restructure later to avoid repetition
-
-    # Delete write folder unless otherwise specified, if folder already exists
-    if delete_existing:
-        delete_experiment_items(
-            experiments_dir,
-            super_experiment_name,
-            sub_experiment_name,
-        )
-
-    # If simulations_dict["simulation_parameter_values"] is a pl.Dataframe, convert it to a dictionary
-    if isinstance(
-        simulations_dict["simulation_parameter_values"], pl.DataFrame
-    ):
-        temp_dict = utils.df_to_simulation_dict(
-            simulations_dict["simulation_parameter_values"]
-        )
-        simulations_dict["simulation_parameter_values"] = temp_dict
-        del temp_dict
-
-    if azure_batch:
-        if not azure_client:
-            raise ValueError(
-                "AzureClient must be provided when azure_batch is True"
-            )
-
-        input_files = []
-
-        for simulation, sim_params in simulations_dict[
-            "simulation_parameter_values"
-        ].items():
-            # Define the folder path
-            simulation_folder_path = (
-                f"{sub_experiment_name}/simulation_{simulation}"
-            )
-
-            # Handle any parameters which are expected to be files
-            if params_as_files_function_dict is not None:
-                for (
-                    parameter,
-                    function,
-                ) in params_as_files_function_dict.items():
-                    # Retrieve the file name and file contents using the user-defined function
-                    file_name, file_contents = function(sim_params[parameter])
-
-                    # Update sim_params with the file name
-                    sim_params[parameter] = os.path.join(
-                        simulation_folder_path, file_name
-                    )
-
-                    # Write the file
-                    input_files.append(
-                        (simulation_folder_path, file_name, file_contents)
-                    )
-
-            # Create full parameters specification
-            sim_params_full, _ = utils.combine_params_dicts(
-                simulations_dict["baseline_parameters"],
-                sim_params,
-                scenario_key=scenario_key,
-            )
-
-            # For Ixa, update the output_dir
-            if model_type == "ixa":
-                sim_params_full["output_dir"] = os.path.join(
-                    simulation_folder_path
-                )
-
-            # Generate simulation input file content
-            input_file_name = f"input.{input_data_type}"
-            sim_params_data_file = utils.parameters_writer(
-                sim_params_full, input_data_type
-            )
-
-            # file_path = f"{simulation_folder_path}/{input_file_name}"
-            input_files.append(
-                (simulation_folder_path, input_file_name, sim_params_data_file)
-            )
-
-        # Generate full parameters list content
-        full_params_json = json.dumps(simulations_dict, indent=4)
-        full_params_folder_path = f"{sub_experiment_name}"
-        full_params_file_name = "full_params_list_all_sims.json"
-        input_files.append(
-            (full_params_folder_path, full_params_file_name, full_params_json)
-        )
-
-        # todo: eventually we want to connect to a docker container and be able to write directly to Azure Batch. We need an orchestrator connected to a node
-        # Upload input files to the blob container
-        for folder_path, file_name, file_content in input_files:
-            # Write content to a file to upload
-            full_path = os.path.join(
-                experiments_dir, super_experiment_name, folder_path
-            )
-
-            os.makedirs(full_path, exist_ok=True)
-
-            with open(os.path.join(full_path, file_name), "w") as temp_file:
-                temp_file.write(file_content)
-
-            # Upload the file
-            print(folder_path)
-            azure_client.upload_files(
-                [os.path.join(full_path, file_name)],
-                container_name=blob_container_name,
-                location_in_blob=folder_path,
-            )
-
-    elif not azure_batch:
-        # Create the super_experiment_name/sub_experiment_name directory if it doesn't exist
-        experiment_dir = os.path.join(
-            experiments_dir, super_experiment_name, sub_experiment_name
-        )
-        os.makedirs(experiment_dir, exist_ok=True)
-
-        for simulation, sim_params in simulations_dict[
-            "simulation_parameter_values"
-        ].items():
-            # Create simulation folder
-            simulation_folder = os.path.join(
-                experiment_dir, f"simulation_{simulation}"
-            )
-            os.makedirs(simulation_folder, exist_ok=True)
-
-            # Handle any parameters which are expected to be files
-            if params_as_files_function_dict is not None:
-                for (
-                    parameter,
-                    function,
-                ) in params_as_files_function_dict.items():
-                    # Retrieve the file name and file contents using the user-defined function
-                    file_name, file_contents = function(sim_params[parameter])
-
-                    # Update sim_params with the file name
-                    sim_params[parameter] = os.path.join(
-                        simulation_folder, file_name
-                    )
-
-                    # Write the file
-                    with open(
-                        os.path.join(simulation_folder, file_name), "w"
-                    ) as file:
-                        file.write(file_contents)
-
-            # Create full parameters specification
-            sim_params_full, _ = utils.combine_params_dicts(
-                simulations_dict["baseline_parameters"],
-                sim_params,
-                scenario_key=scenario_key,
-            )
-
-            # For Ixa, update the output_dir and create the folder if needed
-            if model_type == "ixa":
-                sim_params_full["output_dir"] = os.path.join(
-                    simulation_folder, "output"
-                )
-                os.makedirs(
-                    os.path.join(simulation_folder, "output"), exist_ok=True
-                )
-
-            # Write each simulation's parameters to input file and save it to disk
-            input_file_path = os.path.join(
-                simulation_folder, f"input.{input_data_type}"
-            )
-            sim_params_data_file = utils.parameters_writer(
-                sim_params_full, input_data_type
-            )
-            with open(input_file_path, "w") as file:
-                file.write(sim_params_data_file)
-
-        # Write out full simulations parameter list to json file
-        full_params_json = json.dumps(simulations_dict, indent=4)
-        full_params_path = os.path.join(
-            experiment_dir, "full_params_list_all_sims.json"
-        )
-        with open(full_params_path, "w") as f:
-            f.write(full_params_json)
+from abmwrappers import utils
+from abmwrappers.experiment_class import Experiment
 
 
 def run_local_simulation(
@@ -240,7 +26,7 @@ def run_local_simulation(
 
 def products_from_inputs_index(
     simulation_index: int,
-    experiment: experiment_class.Experiment,
+    experiment: Experiment,
     distance_fn: Callable = None,
     data_processing_fn: Callable = None,
     products: list = None,
@@ -357,7 +143,7 @@ def run_pool_simulations(
 
 
 def abcsmc_experiment_runner(
-    experiment: experiment_class.Experiment,
+    experiment: Experiment,
     data_processing_fn: Callable = None,
     distance_fn: Callable = None,
     prior_distribution_dict: dict = None,
@@ -521,7 +307,7 @@ def abcsmc_update_compressed_experiment(
     """
 
     # Load the compressed experiment
-    experiment = experiment_class.Experiment(img_file=experiment_file)
+    experiment = Experiment(img_file=experiment_file)
 
     # Load the distances
     experiment.read_parquet_data_to_current_step(input_dir=distance_path)
@@ -532,12 +318,10 @@ def abcsmc_update_compressed_experiment(
 
 
 def download_outputs(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    n_sims: int,
     azure_client: AzureClient,
     blob_container_name: str,
+    dest_path: str,
+    src_path: str,
 ) -> None:
     """
 
@@ -555,63 +339,9 @@ def download_outputs(
         None
 
     """
-    dest_path = f"{experiments_dir}/{super_experiment_name}/"
-    src_blob_prefix = f"{sub_experiment_name}/"
 
-    for sim in range(n_sims):
-        src_path = src_blob_prefix + f"simulation_{sim}/output/"
-        azure_client.download_directory(
-            src_path=src_path,
-            dest_path=dest_path,
-            container_name=blob_container_name,
-        )
-
-
-def delete_experiment_items(
-    experiments_dir: str,
-    super_experiment_name: str,
-    sub_experiment_name: str,
-    prefix: str = None,
-    file_type: str = None,
-):
-    """
-    Deletes items (files/folders) within a given super experiment and sub experiment directory,
-    optionally filtering by a given prefix or specific file type.
-
-    Args:
-        experiments_dir (str): Directory for experiments.
-        super_experiment_name (str): Name of the super experiment.
-        sub_experiment_name (str): Name of the sub experiment.
-        prefix (str): Optional; Prefix that selected items must start with.
-        file_type (str): Optional; Specific file extension to filter for deletion.
-
-    Returns:
-        None
-    """
-    # Define the path to the super experiment and sub experiment directory
-    sub_experiment_dir = os.path.join(
-        experiments_dir, super_experiment_name, sub_experiment_name
+    azure_client.download_directory(
+        src_path=src_path,
+        dest_path=dest_path,
+        container_name=blob_container_name,
     )
-
-    # Check if the directory exists before attempting any operations
-    if not os.path.exists(sub_experiment_dir):
-        # print(f"The directory {sub_experiment_dir} does not exist. No deletion necessary.")
-        return
-
-    # List all items in the directory
-    for item in os.listdir(sub_experiment_dir):
-        # Construct full path to item
-        item_path = os.path.join(sub_experiment_dir, item)
-        # Check if item matches prefix condition if provided
-        if prefix is not None and not item.startswith(prefix):
-            continue
-        # Check if item matches file type condition if provided
-        if file_type is not None:
-            # If it's a folder or doesn't match the extension, skip it
-            if os.path.isdir(item_path) or not item.endswith(file_type):
-                continue
-        # Delete files or folders that meet conditions
-        if os.path.isfile(item_path) or os.path.islink(item_path):
-            os.remove(item_path)
-        elif os.path.isdir(item_path):
-            shutil.rmtree(item_path)

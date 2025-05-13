@@ -1,6 +1,7 @@
 import os
 import pickle
 import random
+import shutil
 import subprocess
 import warnings
 from typing import Callable
@@ -30,8 +31,13 @@ class Experiment:
         data_processing_fn: Callable = None,
     ):
         """
-        Initialize the experiment with a config file
-        :param config_file: Path to the config file
+        Initialize the experiment as either a new experiment using a config file or restore the history of a previously compressed and saved experiment
+        :param config_file: The path to the config file. If this file is not specified, the experiment will be initialized with the img_file
+        :param experiments_directory: The path to the experiments directory. This is where the experiment will be saved and recognized. Required for config but not img_file
+        :param img_file: The path to the image file. If this file is not specified, the experiment will be initialized with the config_file
+        :param prior_distribution_dict: A dictionary of prior distributions for the simulation parameters. This is used during ABC SMC and for drawing random parameters
+            if no parameters are specified in the prior distributions
+
         """
 
         if config_file is None and img_file is None:
@@ -87,10 +93,14 @@ class Experiment:
 
             self.load_config_params()
 
+    # --------------------------------------------
+    # Loading and storing the experiment
+    # --------------------------------------------
+
     def load_config_params(self):
         """
         load the parameters from the experimental file
-        establsihes the experimental components, paths, and handles tha azure configuration file
+        establishes the experimental components, paths, and handles tha azure configuration file
         """
         with open(self.config_file, "r") as f:
             experimental_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -230,272 +240,6 @@ class Experiment:
                 UserWarning,
             )
 
-    def initialize_simbundle(
-        self,
-        prior_distribution_dict: dict = None,
-        changed_baseline_params: dict = {},
-        scenario_key: str = None,
-        unflatten: bool = True,
-        seed_variable_name: str = "randomSeed",
-    ) -> SimulationBundle:
-        if len(changed_baseline_params) > 0:
-            print(
-                "Changed baseline parameters specified from config file. Updating baseline parameters and overwriting common keys."
-            )
-            self.changed_baseline_params.update(changed_baseline_params)
-
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-        # Create baseline_params by updating default params
-        baseline_params, _summary_string = utils.load_baseline_params(
-            self.default_params_file,
-            self.changed_baseline_params,
-            scenario_key,
-            unflatten,
-        )
-
-        # Save prior distribution for use in experiment and draw
-        if prior_distribution_dict is not None:
-            if (
-                self.priors is not None
-                and self.priors is not prior_distribution_dict
-            ):
-                raise ValueError(
-                    "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
-                )
-            self.priors = prior_distribution_dict
-
-        if self.priors:
-            input_df = abc_methods.draw_simulation_parameters(
-                params_inputs=self.priors,
-                n_parameter_sets=self.n_particles,
-                replicates_per_particle=self.replicates,
-                seed=self.seed,
-            )
-        else:
-            warnings.warn(
-                "No prior distribution specified. Making empty inputs of simulation index and random seed for number of replicates instead. ABC SMC will fail if called.",
-                UserWarning,
-            )
-            input_df = pl.DataFrame(
-                {
-                    "simulation": range(self.replicates),
-                    seed_variable_name: [
-                        random.randint(0, 2**32)
-                        for _ in range(self.replicates)
-                    ],
-                }
-            )
-
-        # Create simulation bundle
-        sim_bundle = SimulationBundle(
-            inputs=input_df,
-            step_number=0,
-            baseline_params=baseline_params,
-        )
-
-        # Add simulation bundle to dictionary
-        self.simulation_bundles[sim_bundle.step_number] = sim_bundle
-        self.current_step = 0
-
-        return sim_bundle
-
-    # --------------------------------------------
-    # Reading in data for the current experiment step
-    def read_parquet_data_to_current_step(
-        self, input_dir: str, write_results: bool = False
-    ):
-        """
-        Read distances and simulation results into the simulation bundle history
-        """
-        distances = pl.read_parquet(f"{input_dir}/distances/")
-
-        if distances.is_empty():
-            raise ValueError("No distances found in the input directory.")
-
-        if self.simulation_bundles[self.current_step].distances:
-            raise ValueError(
-                "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
-            )
-        self.simulation_bundles[self.current_step].distances = {}
-
-        for k, v in zip(distances["simulation"], distances["distance"]):
-            self.simulation_bundles[self.current_step].distances[k] = v
-
-        # These should be optionally stored, not just optionally written
-        if write_results:
-            simulations = pl.read_parquet(f"{input_dir}/simulations/")
-            with open(
-                os.path.join(
-                    input_dir, f"step_{self.current_step}_simulations.parquet"
-                ),
-                "wb",
-            ) as f:
-                simulations.write_parquet(f)
-
-    # --------------------------------------------
-    # Resampling between experiment steps
-    def resample_for_next_abc_step(
-        self,
-        perturbation_kernel_dict: dict = None,
-        prior_distribution_dict: dict = None,
-    ):
-        """
-        Resample the simulation bundle for the current step
-        """
-        if perturbation_kernel_dict is not None:
-            self.perturbation_kernel_dict = perturbation_kernel_dict
-        if self.perturbation_kernel_dict is None:
-            raise ValueError(
-                "Perturbation kernel not specified on experiment initiation or during resample."
-            )
-        if self.priors is None and prior_distribution_dict is None:
-            raise ValueError(
-                "Prior distribution not specified on experiment initiation or during resample."
-            )
-        if prior_distribution_dict is not None and self.priors is None:
-            print(
-                "Prior distribution specified during resample. Updating prior."
-            )
-            self.priors = prior_distribution_dict
-
-        # Accept or reject simulation distances in current step
-        current_bundle: SimulationBundle = self.simulation_bundles[
-            self.current_step
-        ]
-        tolerance = self.tolerance_dict[self.current_step]
-        current_bundle.accept_stochastic(
-            tolerance=tolerance,
-        )
-
-        if self.current_step > 0:
-            prev_bundle = self.simulation_bundles[self.current_step - 1]
-
-            current_bundle.weights = abc_methods.calculate_weights_abcsmc(
-                current_accepted=current_bundle.accepted,
-                prev_step_accepted=prev_bundle.accepted,
-                prev_weights=prev_bundle.weights,
-                stochastic_acceptance_weights=current_bundle.acceptance_weights,
-                prior_distributions=self.priors,
-                perturbation_kernels=self.perturbation_kernel_dict,
-                normalize=True,
-            )
-
-        else:
-            current_bundle.weights = {
-                key: current_bundle.acceptance_weights[key]
-                / sum(current_bundle.acceptance_weights.values())
-                for key in current_bundle.accepted.keys()
-            }
-        new_inputs = abc_methods.resample(
-            accepted_simulations=current_bundle.accepted,
-            n_samples=self.n_particles,
-            replicates_per_sample=self.replicates,
-            perturbation_kernels=self.perturbation_kernel_dict,
-            prior_distributions=self.priors,
-            weights=current_bundle.weights,
-            starting_simulation_number=(self.current_step + 1)
-            * self.n_simulations,
-        )
-
-        # Create new simulation bundle
-        new_bundle = SimulationBundle(
-            inputs=new_inputs,
-            step_number=self.current_step + 1,
-            baseline_params=current_bundle.baseline_params,
-        )
-
-        # Add simulation bundle to dictionary
-        self.simulation_bundles[new_bundle.step_number] = new_bundle
-        self.current_step += 1
-
-    def get_bundle_from_simulation_index(
-        self, simulation_index: int
-    ) -> SimulationBundle:
-        step_id = int(simulation_index / self.n_simulations)
-        if step_id not in self.simulation_bundles:
-            raise ValueError(
-                f"Simulation bundle for step {step_id} not found."
-            )
-        if step_id != self.current_step:
-            warnings.warn(
-                f"Index {simulation_index} exists in step {step_id}, which is not the current experiment step {self.current_step}. Proceeding...",
-                UserWarning,
-            )
-        return self.simulation_bundles[step_id]
-
-    def write_simulation_inputs_to_file(
-        self,
-        simulation_index: int,
-        write_inputs_cmd: str = None,
-        scenario_key: str = None,
-    ) -> str:
-        """
-        Write a single simulation's input file
-        :param simulation_index: The index of the simulation to write
-        :param write_inputs_cmd: The command to run that sources outside code to transform
-            a base yaml file into readable inputs for execution
-            A default of None will return only the formatted inputs from the simulation bundle
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
-
-        In general, self.directory/data/input for simulation input files
-        Use a tmp space for files that are intermediate products
-        """
-
-        sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
-
-        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
-
-        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        input_dict[simulation_index]["seed"] = input_dict[
-            simulation_index
-        ].pop("randomSeed")
-
-        # If scenario key is not specified, use the default scenario key
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-
-        simulation_params, _summary_string = utils.combine_params_dicts(
-            sim_bundle.baseline_params,
-            input_dict[simulation_index],
-            scenario_key=scenario_key,
-        )
-
-        input_dir = os.path.join(self.data_path, "input")
-        os.makedirs(input_dir, exist_ok=True)
-
-        input_file_name = (
-            f"simulation_{simulation_index}.{self.input_file_type}"
-        )
-
-        if write_inputs_cmd is None:
-            if simulation_index % self.n_simulations == 0:
-                print(
-                    "No preprocessing step supplied to transform input parameters. Printing directly to file"
-                )
-            formatted_inputs = utils.gcm_parameters_writer(
-                params=simulation_params,
-                output_type=self.input_file_type,
-                unflatten=True,
-            )
-            with open(os.path.join(input_dir, input_file_name), "w") as f:
-                f.write(formatted_inputs)
-            return os.path.join(input_dir, input_file_name)
-        else:
-            # Use the command line to write the inputs from a preprocessing script
-            # UNSTABLE
-            warnings.warn(
-                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml",
-                UserWarning,
-            )
-            formatted_inputs = utils.gcm_parameters_writer(
-                params=simulation_params, output_type="YAML", unflatten=False
-            )
-            with open(os.path.join(input_dir, "base.yaml"), "w") as f:
-                f.write(formatted_inputs)
-            subprocess.run(write_inputs_cmd.split(), check=True)
-            return input_dir
-
     def compress_and_save(self, output_file: str):
         """
         Lossy compression to save a reproducible savepoint
@@ -594,3 +338,321 @@ class Experiment:
             if "data_processing_fn" in data
             else None
         )
+
+    def delete_experiment(
+        self,
+        prefix: str = None,
+        file_type: str = None,
+    ):
+        """
+        Deletes items (files/folders) within a given experiment,
+        optionally filtering by a given prefix or specific file type.
+
+        Args:
+            experiments_dir (str): Directory for experiments.
+            super_experiment_name (str): Name of the super experiment.
+            sub_experiment_name (str): Name of the sub experiment.
+            prefix (str): Optional; Prefix that selected items must start with.
+            file_type (str): Optional; Specific file extension to filter for deletion.
+
+        Returns:
+            None
+        """
+
+        # List all items in the directory
+        for item in os.listdir(self.data_path):
+            # Construct full path to item
+            item_path = os.path.join(self.data_path, item)
+            # Check if item matches prefix condition if provided
+            if prefix is not None and not item.startswith(prefix):
+                continue
+            # Check if item matches file type condition if provided
+            if file_type is not None:
+                # If it's a folder or doesn't match the extension, skip it
+                if os.path.isdir(item_path) or not item.endswith(file_type):
+                    continue
+            # Delete files or folders that meet conditions
+            if os.path.isfile(item_path) or os.path.islink(item_path):
+                os.remove(item_path)
+            elif os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+
+    # --------------------------------------------
+    # Simulation bundles and ABC SMC funcitons
+    # --------------------------------------------
+
+    def initialize_simbundle(
+        self,
+        prior_distribution_dict: dict = None,
+        changed_baseline_params: dict = {},
+        scenario_key: str = None,
+        unflatten: bool = True,
+        seed_variable_name: str = "randomSeed",
+    ) -> SimulationBundle:
+        if len(changed_baseline_params) > 0:
+            print(
+                "Changed baseline parameters specified from config file. Updating baseline parameters and overwriting common keys."
+            )
+            self.changed_baseline_params.update(changed_baseline_params)
+
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+        # Create baseline_params by updating default params
+        baseline_params, _summary_string = utils.load_baseline_params(
+            self.default_params_file,
+            self.changed_baseline_params,
+            scenario_key,
+            unflatten,
+        )
+
+        # Save prior distribution for use in experiment and draw
+        if prior_distribution_dict is not None:
+            if (
+                self.priors is not None
+                and self.priors is not prior_distribution_dict
+            ):
+                raise ValueError(
+                    "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
+                )
+            self.priors = prior_distribution_dict
+
+        if self.priors:
+            input_df = abc_methods.draw_simulation_parameters(
+                params_inputs=self.priors,
+                n_parameter_sets=self.n_particles,
+                replicates_per_particle=self.replicates,
+                seed=self.seed,
+            )
+        else:
+            warnings.warn(
+                "No prior distribution specified. Making empty inputs of simulation index and random seed for number of replicates instead. ABC SMC will fail if called.",
+                UserWarning,
+            )
+            input_df = pl.DataFrame(
+                {
+                    "simulation": range(self.replicates),
+                    seed_variable_name: [
+                        random.randint(0, 2**32)
+                        for _ in range(self.replicates)
+                    ],
+                }
+            )
+
+        # Create simulation bundle
+        sim_bundle = SimulationBundle(
+            inputs=input_df,
+            step_number=0,
+            baseline_params=baseline_params,
+        )
+
+        # Add simulation bundle to dictionary
+        self.simulation_bundles[sim_bundle.step_number] = sim_bundle
+        self.current_step = 0
+
+        return sim_bundle
+
+    def get_bundle_from_simulation_index(
+        self, simulation_index: int
+    ) -> SimulationBundle:
+        step_id = int(simulation_index / self.n_simulations)
+        if step_id not in self.simulation_bundles:
+            raise ValueError(
+                f"Simulation bundle for step {step_id} not found."
+            )
+        if step_id != self.current_step:
+            warnings.warn(
+                f"Index {simulation_index} exists in step {step_id}, which is not the current experiment step {self.current_step}. Proceeding...",
+                UserWarning,
+            )
+        return self.simulation_bundles[step_id]
+
+    def read_parquet_data_to_current_step(
+        self, input_dir: str, write_results: bool = False
+    ):
+        """
+        Read distances and simulation results into the simulation bundle history
+        """
+        distances = pl.read_parquet(f"{input_dir}/distances/")
+
+        if distances.is_empty():
+            raise ValueError("No distances found in the input directory.")
+
+        if self.simulation_bundles[self.current_step].distances:
+            raise ValueError(
+                "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
+            )
+        self.simulation_bundles[self.current_step].distances = {}
+
+        for k, v in zip(distances["simulation"], distances["distance"]):
+            self.simulation_bundles[self.current_step].distances[k] = v
+
+        # These should be optionally stored, not just optionally written
+        if write_results:
+            simulations = pl.read_parquet(f"{input_dir}/simulations/")
+            with open(
+                os.path.join(
+                    input_dir, f"step_{self.current_step}_simulations.parquet"
+                ),
+                "wb",
+            ) as f:
+                simulations.write_parquet(f)
+
+    # --------------------------------------------
+    # Resampling between experiment steps
+    def resample_for_next_abc_step(
+        self,
+        perturbation_kernel_dict: dict = None,
+        prior_distribution_dict: dict = None,
+    ):
+        """
+        Resample the simulation bundle from the current step and create next step inputs
+        Uses the curent history to resample inputs for the next step, conditional on the accepted results and distacnes being present
+        First calculates the weights for each particle parameter set, equal to the normalized proprotion of accepted simulations in a particle for step 0
+        Then resamples the accepted simulations from the previous step, perturbing values afterwards for each particle sampled.
+        """
+        if perturbation_kernel_dict is not None:
+            self.perturbation_kernel_dict = perturbation_kernel_dict
+        if self.perturbation_kernel_dict is None:
+            raise ValueError(
+                "Perturbation kernel not specified on experiment initiation or during resample."
+            )
+        if self.priors is None and prior_distribution_dict is None:
+            raise ValueError(
+                "Prior distribution not specified on experiment initiation or during resample."
+            )
+        if prior_distribution_dict is not None and self.priors is None:
+            print(
+                "Prior distribution specified during resample. Updating prior."
+            )
+            self.priors = prior_distribution_dict
+
+        # Validate that the keys in perturbation kernel and prior dictionary are the same
+        if self.perturbation_kernel_dict and self.priors:
+            kernel_keys = set(self.perturbation_kernel_dict.keys())
+            prior_keys = set(self.priors.keys())
+            if kernel_keys != prior_keys:
+                raise ValueError(
+                    f"Mismatch between perturbation kernel keys {kernel_keys} and prior distribution keys {prior_keys}."
+                )
+
+        # Accept or reject simulation distances in current step
+        current_bundle: SimulationBundle = self.simulation_bundles[
+            self.current_step
+        ]
+        tolerance = self.tolerance_dict[self.current_step]
+        current_bundle.accept_stochastic(
+            tolerance=tolerance,
+        )
+
+        if self.current_step > 0:
+            prev_bundle = self.simulation_bundles[self.current_step - 1]
+
+            current_bundle.weights = abc_methods.calculate_weights_abcsmc(
+                current_accepted=current_bundle.accepted,
+                prev_step_accepted=prev_bundle.accepted,
+                prev_weights=prev_bundle.weights,
+                stochastic_acceptance_weights=current_bundle.acceptance_weights,
+                prior_distributions=self.priors,
+                perturbation_kernels=self.perturbation_kernel_dict,
+                normalize=True,
+            )
+
+        else:
+            current_bundle.weights = {
+                key: current_bundle.acceptance_weights[key]
+                / sum(current_bundle.acceptance_weights.values())
+                for key in current_bundle.accepted.keys()
+            }
+        new_inputs = abc_methods.resample(
+            accepted_simulations=current_bundle.accepted,
+            n_samples=self.n_particles,
+            replicates_per_sample=self.replicates,
+            perturbation_kernels=self.perturbation_kernel_dict,
+            prior_distributions=self.priors,
+            weights=current_bundle.weights,
+            starting_simulation_number=(self.current_step + 1)
+            * self.n_simulations,
+        )
+
+        # Create new simulation bundle
+        new_bundle = SimulationBundle(
+            inputs=new_inputs,
+            step_number=self.current_step + 1,
+            baseline_params=current_bundle.baseline_params,
+        )
+
+        # Add simulation bundle to dictionary
+        self.simulation_bundles[new_bundle.step_number] = new_bundle
+        self.current_step += 1
+
+    def write_simulation_inputs_to_file(
+        self,
+        simulation_index: int,
+        write_inputs_cmd: str = None,
+        scenario_key: str = None,
+    ) -> str:
+        """
+        Write a single simulation's input file
+        :param simulation_index: The index of the simulation to write
+        :param write_inputs_cmd: The command to run that sources outside code to transform
+            a base yaml file into readable inputs for execution
+            A default of None will return only the formatted inputs from the simulation bundle
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+
+        In general, self.directory/data/input for simulation input files
+        Use a tmp space for files that are intermediate products
+        """
+
+        sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
+
+        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
+
+        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
+        input_dict[simulation_index]["seed"] = input_dict[
+            simulation_index
+        ].pop("randomSeed")
+
+        # If scenario key is not specified, use the default scenario key
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+
+        simulation_params, _summary_string = utils.combine_params_dicts(
+            sim_bundle.baseline_params,
+            input_dict[simulation_index],
+            scenario_key=scenario_key,
+        )
+
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+
+        input_file_name = (
+            f"simulation_{simulation_index}.{self.input_file_type}"
+        )
+
+        if write_inputs_cmd is None:
+            if simulation_index % self.n_simulations == 0:
+                print(
+                    "No preprocessing step supplied to transform input parameters. Printing directly to file"
+                )
+            formatted_inputs = utils.gcm_parameters_writer(
+                params=simulation_params,
+                output_type=self.input_file_type,
+                unflatten=True,
+            )
+            with open(os.path.join(input_dir, input_file_name), "w") as f:
+                f.write(formatted_inputs)
+            return os.path.join(input_dir, input_file_name)
+        else:
+            # Use the command line to write the inputs from a preprocessing script
+            # UNSTABLE
+            warnings.warn(
+                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml",
+                UserWarning,
+            )
+            formatted_inputs = utils.gcm_parameters_writer(
+                params=simulation_params, output_type="YAML", unflatten=False
+            )
+            with open(os.path.join(input_dir, "base.yaml"), "w") as f:
+                f.write(formatted_inputs)
+            subprocess.run(write_inputs_cmd.split(), check=True)
+            return input_dir
