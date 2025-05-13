@@ -172,16 +172,35 @@ class Experiment:
         ]
         self.n_simulations = self.n_particles * self.replicates
 
-        self.tolerance_dict = {
-            int(k): float(v)
-            for k, v in experimental_config["experiment_conditions"][
-                "tolerance"
-            ].items()
-        }
+        # Tolerance can be specified for each step or stored as a null in the case of not running abcsmc using the wrappers
+        if (
+            experimental_config["experiment_conditions"]["tolerance"]
+            is not None
+        ):
+            self.tolerance_dict = {
+                int(k): float(v)
+                for k, v in experimental_config["experiment_conditions"][
+                    "tolerance"
+                ].items()
+            }
 
-        for tolerance in self.tolerance_dict.values():
-            if tolerance <= 0:
-                raise ValueError("Acceptance criteria improperly defined")
+            for tolerance in self.tolerance_dict.values():
+                if tolerance <= 0:
+                    raise ValueError("Acceptance criteria improperly defined")
+
+        if (
+            "changed_baseline_params"
+            in experimental_config["experiment_conditions"]
+        ):
+            self.changed_baseline_params = {
+                k: v
+                for k, v in experimental_config["experiment_conditions"][
+                    "changed_baseline_params"
+                ].items()
+            }
+        else:
+            self.changed_baseline_params = {}
+
         # --------------------------------------------
         # Azure batch parameter loading
         self.azure_batch = experimental_config["azb"]["azure_batch"]
@@ -202,10 +221,16 @@ class Experiment:
         scenario_key: str = "baseline_parameters",
         unflatten: bool = True,
     ) -> SimulationBundle:
+        if changed_baseline_params.len() > 0:
+            print(
+                "Changed baseline parameters specified from config file. Updating baseline parameters and overwriting common keys."
+            )
+            self.changed_baseline_params.update(changed_baseline_params)
+
         # Create baseline_params by updating default params
         baseline_params, _summary_string = utils.load_baseline_params(
             self.default_params_file,
-            changed_baseline_params,
+            self.changed_baseline_params,
             scenario_key,
             unflatten,
         )

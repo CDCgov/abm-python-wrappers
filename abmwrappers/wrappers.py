@@ -347,7 +347,7 @@ def run_pool_simulations(
         )
 
 
-def experiment_runner(
+def abcsmc_experiment_runner(
     experiment: experiment_class.Experiment,
     data_processing_fn: Callable = None,
     distance_fn: Callable = None,
@@ -413,16 +413,14 @@ def experiment_runner(
         blob_experiment_directory = os.path.join(
             experiment.sub_experiment_name, experiment.sub_experiment_name
         )
-        gather_script = os.path.join(blob_experiment_directory, "gather_step.py")
-        task_script = os.path.join(
-            blob_experiment_directory, "task.py"
+        gather_script = os.path.join(
+            blob_experiment_directory, "gather_step.py"
         )
+        task_script = os.path.join(blob_experiment_directory, "task.py")
         blob_data_path = os.path.join(blob_experiment_directory, "data")
         blob_experiment_path = os.path.join(
             blob_experiment_directory, "experiment_history.pkl"
         )
-
-        
 
         # Upload the experiment history file to Azure Blob Storage along with any included files
         client.upload_files(
@@ -438,7 +436,7 @@ def experiment_runner(
             for simulation_index in range(experiment.n_simulations):
                 task_i_cmd = f"poetry python run /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
                 task_i_cmd += " ".join(products)
-                
+
                 sim_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=task_i_cmd,

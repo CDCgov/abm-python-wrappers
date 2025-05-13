@@ -1,20 +1,21 @@
+import argparse
 
 from abmwrappers import wrappers
-import argparse
 from abmwrappers.experiment_class import Experiment
 
+
 def main(
-        simulation_index: int,
-        img_file: str,
-        scenario_key: str,
-        clean: bool = False,
-        products: list = None,
-        products_output_dir: str = None,
+    simulation_index: int,
+    img_file: str,
+    scenario_key: str,
+    clean: bool = False,
+    products: list = None,
+    products_output_dir: str = None,
 ):
     experiment = Experiment(img_file)
     wrappers.products_from_inputs_index(
         simulation_index=simulation_index,
-        experiment = experiment,
+        experiment=experiment,
         distance_fn=experiment.distance_fn,
         data_processing_fn=experiment.data_processing_fn,
         products=products,
@@ -23,24 +24,39 @@ def main(
         clean=clean,
     )
 
+
 parser = argparse.ArgumentParser(description="Run ABM wrapper")
 parser.add_argument(
-    "--index", type=int, required=True, help="Index of the simulation to be run. Automatically sources correct bundle from history"
+    "--index",
+    type=int,
+    required=True,
+    help="Index of the simulation to be run. Automatically sources correct bundle from history",
 )
 parser.add_argument(
-    "-f", "--input-experiment-file", type=str, required=True, help="Path to the experiment history file containing bundled inputs and experiment information"
+    "-f",
+    "--input-experiment-file",
+    type=str,
+    required=True,
+    help="Path to the experiment history file containing bundled inputs and experiment information",
 )
 parser.add_argument(
-    "-k","--scenario-key", type=str, required=True, help="Scenario key"
+    "-k", "--scenario-key", type=str, required=True, help="Scenario key"
 )
 parser.add_argument(
-    "--clean", action="store_true", help="Clean up raw output files after processing into products"
+    "--clean",
+    action="store_true",
+    help="Clean up raw output files after processing into products",
 )
 parser.add_argument(
-    "--products", nargs="*", help="List of products to process (distances, simulations)"
+    "--products",
+    nargs="*",
+    help="List of products to process (distances, simulations)",
 )
 parser.add_argument(
-    "-o","--products-output-dir", type=str, help="Output directory for products to be stored"
+    "-o",
+    "--products-output-dir",
+    type=str,
+    help="Output directory for products to be stored",
 )
 
 args = parser.parse_args()
