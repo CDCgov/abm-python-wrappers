@@ -8,6 +8,10 @@ from cfa_azure.clients import AzureClient
 from abmwrappers import utils
 from abmwrappers.experiment_class import Experiment
 
+# --------------------------
+# Simulation wrappers
+# --------------------------
+
 
 def run_local_simulation(
     simulation_dir,
@@ -22,6 +26,67 @@ def run_local_simulation(
         )
         os.makedirs(output_dir, exist_ok=True)
     utils.run_model_command_line(cmd, model_type, recompile)
+
+
+def run_pool_simulations(
+    simulation_dirs: list,
+    model_type: str,
+    exe_file,
+    num_processes: int = 8,
+):
+    """
+    Run simulations in parallel using multiprocessing.
+
+    Args:
+        simulation_dirs (list): List of directories for each simulation.
+        model_type (str): Type of model to run (e.g., "gcm", "ixa").
+        exe_file (str): Path to the executable file for the model.
+        num_processes (int): Number of processes to use for parallel execution.
+
+    Returns:
+        None
+    """
+
+    with Pool(processes=num_processes) as pool:
+        pool.starmap(
+            run_local_simulation,
+            [(sim_dir, model_type, exe_file) for sim_dir in simulation_dirs],
+        )
+
+
+def download_outputs(
+    azure_client: AzureClient,
+    blob_container_name: str,
+    dest_path: str,
+    src_path: str,
+) -> None:
+    """
+
+    Downloads the output directory of a given sub-experiment from Azure Blob Storage to a local directory.
+
+    Args:
+
+        azure_client: An instance of an Azure Batch client.
+        blob_container_name: The name of the Azure Blob Storage container.
+        dest_path: The local directory where the output files will be downloaded.
+        src_path: The path in the Azure Blob Storage container where the output files are stored.
+
+    Returns:
+
+        None
+
+    """
+
+    azure_client.download_directory(
+        src_path=src_path,
+        dest_path=dest_path,
+        container_name=blob_container_name,
+    )
+
+
+# --------------------------
+# Experiment wrappers
+# --------------------------
 
 
 def products_from_inputs_index(
@@ -116,30 +181,31 @@ def products_from_inputs_index(
             os.remove(os.path.join(simulation_output_path, file))
 
 
-def run_pool_simulations(
-    simulation_dirs: list,
-    model_type: str,
-    exe_file,
-    num_processes: int = 8,
+def abcsmc_update_compressed_experiment(
+    experiment_file: str,
+    distance_path: str,
 ):
     """
-    Run simulations in parallel using multiprocessing.
+    Update a compressed experiment file with distances stored as a .parquet Hive partition from a specified path.
+    Used during the gather step that gates ABC SMC steps from progressing
 
     Args:
-        simulation_dirs (list): List of directories for each simulation.
-        model_type (str): Type of model to run (e.g., "gcm", "ixa").
-        exe_file (str): Path to the executable file for the model.
-        num_processes (int): Number of processes to use for parallel execution.
+        experiment_file (str): Path to the compressed experiment file.
+        distance_path (str): Path to the distance data.
 
     Returns:
         None
     """
 
-    with Pool(processes=num_processes) as pool:
-        pool.starmap(
-            run_local_simulation,
-            [(sim_dir, model_type, exe_file) for sim_dir in simulation_dirs],
-        )
+    # Load the compressed experiment
+    experiment = Experiment(img_file=experiment_file)
+
+    # Load the distances
+    experiment.read_parquet_data_to_current_step(input_dir=distance_path)
+    experiment.resample_for_next_abc_step()
+
+    # Save the updated experiment
+    experiment.compress_and_save(experiment_file)
 
 
 def abcsmc_experiment_runner(
@@ -289,59 +355,3 @@ def abcsmc_experiment_runner(
                 )
 
             experiment.resample_for_next_abc_step(perturbation_kernels)
-
-
-def abcsmc_update_compressed_experiment(
-    experiment_file: str,
-    distance_path: str,
-):
-    """
-    Update a compressed experiment file with distances stored as a .parquet Hive partition from a specified path.
-
-    Args:
-        experiment_file (str): Path to the compressed experiment file.
-        distance_path (str): Path to the distance data.
-
-    Returns:
-        None
-    """
-
-    # Load the compressed experiment
-    experiment = Experiment(img_file=experiment_file)
-
-    # Load the distances
-    experiment.read_parquet_data_to_current_step(input_dir=distance_path)
-    experiment.resample_for_next_abc_step()
-
-    # Save the updated experiment
-    experiment.compress_and_save(experiment_file)
-
-
-def download_outputs(
-    azure_client: AzureClient,
-    blob_container_name: str,
-    dest_path: str,
-    src_path: str,
-) -> None:
-    """
-
-    Downloads the output directory of a given sub-experiment from Azure Blob Storage to a local directory.
-
-    Args:
-
-        experiments_dir (str): The base local directory where experiments are stored.
-        super_experiment_name (str): The name of the super experiment; used as the first subfolder in the local path.
-        sub_experiment_name (str): The name of the sub-experiment; used as the second subfolder in the local path and part of source blob prefix.
-        azure_client: An instance of an Azure Batch client.
-
-    Returns:
-
-        None
-
-    """
-
-    azure_client.download_directory(
-        src_path=src_path,
-        dest_path=dest_path,
-        container_name=blob_container_name,
-    )
