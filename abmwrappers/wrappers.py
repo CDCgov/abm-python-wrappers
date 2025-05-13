@@ -300,12 +300,14 @@ def products_from_inputs_index(
             raise ValueError(
                 "Distance function must be provided if not previously declared in Experiment parameters."
             )
-        
+
         sim_bundle.calculate_distances(experiment.target_data, distance_fn)
 
         distance_data_part_path = (
             f"{output_dir}/distances/simulation={simulation_index}/"
         )
+
+        # Write the distance data to a Parquet file with part path storing the simulation column
         os.makedirs(distance_data_part_path, exist_ok=True)
         pl.DataFrame(
             {"distance": sim_bundle.distances.values()}
@@ -315,9 +317,12 @@ def products_from_inputs_index(
         simulation_data_part_path = (
             f"{output_dir}/simulations/simulation={simulation_index}/"
         )
+
+        # Write the simulation data to a Parquet file with part path storing the simulation column
         os.makedirs(simulation_data_part_path, exist_ok=True)
-        print(sim_bundle.results[simulation_index])
-        sim_bundle.results[simulation_index].write_parquet(simulation_data_part_path + "data.parquet")
+        sim_bundle.results[simulation_index].write_parquet(
+            simulation_data_part_path + "data.parquet"
+        )
 
     if clean:
         # Delete raw_output file if cleaning intermediates
