@@ -161,7 +161,10 @@ class Experiment:
         target_data_file = experimental_config["local_path"][
             "target_data_file"
         ]
-        self.target_data = pl.read_csv(target_data_file)
+        if target_data_file is not None:
+            self.target_data = pl.read_csv(target_data_file)
+        else:
+            self.target_data = None
 
         self.seed = experimental_config["experiment_conditions"]["seed"]
         self.n_particles = experimental_config["experiment_conditions"][
@@ -213,6 +216,13 @@ class Experiment:
                 yaml.dump(experimental_config["azb"]["azb_config"], f)
 
             self.create_pool = experimental_config["azb"]["create_pool"]
+
+        if self.tolerance_dict is None or self.target_data is None:
+            raise Warning(
+                """Target data and/or tolerance dict are currently specified as None.
+                    No ABC routines can be run without at least one tolerance step and target data
+                    declared through config file."""
+            )
 
     def initialize_simbundle(
         self,
