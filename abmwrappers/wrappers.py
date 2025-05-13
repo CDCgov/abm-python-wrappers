@@ -256,9 +256,9 @@ def products_from_inputs_index(
         distance_fn = experiment.distance_fn
     if data_processing_fn is None:
         data_processing_fn = experiment.data_processing_fn
-    if distance_fn is None or data_processing_fn is None:
+    if data_processing_fn is None:
         raise ValueError(
-            "Distance function and data processing function must be provided if not previously declared in Experiment parameters."
+            "Data processing function must be provided if not previously declared in Experiment parameters."
         )
 
     input_file_path = experiment.write_simulation_inputs_to_file(
@@ -296,6 +296,11 @@ def products_from_inputs_index(
         output_dir = products_output_dir
 
     if "distances" in products:
+        if distance_fn is None:
+            raise ValueError(
+                "Distance function must be provided if not previously declared in Experiment parameters."
+            )
+        
         sim_bundle.calculate_distances(experiment.target_data, distance_fn)
 
         distance_data_part_path = (
