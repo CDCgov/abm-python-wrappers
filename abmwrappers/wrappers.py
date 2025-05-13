@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import time
 from multiprocessing import Pool
 from typing import Callable
 
@@ -356,6 +355,7 @@ def experiment_runner(
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
     files_to_upload: list = [],
+    scenario_key: str = "baseScenario",
 ):
     if experiment.current_step == 0 or experiment.current_step is None:
         experiment.initialize_simbundle(
@@ -409,6 +409,21 @@ def experiment_runner(
         client.add_job(job_name, task_id_ints=True)
         client.monitor_job(job_name, timeout=36000)
 
+        # Identifying file locations wihtin blob storage
+        blob_experiment_directory = os.path.join(
+            experiment.sub_experiment_name, experiment.sub_experiment_name
+        )
+        gather_script = os.path.join(blob_experiment_directory, "gather_step.py")
+        task_script = os.path.join(
+            blob_experiment_directory, "task.py"
+        )
+        blob_data_path = os.path.join(blob_experiment_directory, "data")
+        blob_experiment_path = os.path.join(
+            blob_experiment_directory, "experiment_history.pkl"
+        )
+
+        
+
         # Upload the experiment history file to Azure Blob Storage along with any included files
         client.upload_files(
             files_to_upload,
@@ -420,10 +435,10 @@ def experiment_runner(
         for step, tolerance in experiment.tolerance_dict.items():
             tasks_id_range = []
 
-            task_i_cmd = "Not implemented"
-
             for simulation_index in range(experiment.n_simulations):
-                print("Not implemented")
+                task_i_cmd = f"poetry python run /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
+                task_i_cmd += " ".join(products)
+                
                 sim_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=task_i_cmd,
@@ -433,7 +448,7 @@ def experiment_runner(
                     tasks_id_range.append(sim_task_id)
 
             task_range = tuple(tasks_id_range)
-            gather_task_cmd = "Not implemented"
+            gather_task_cmd = f"poetry python run /{gather_script} -f /{blob_experiment_path} -i /{blob_data_path}"
 
             gather_task_id = client.add_task(
                 job_id=job_name,
