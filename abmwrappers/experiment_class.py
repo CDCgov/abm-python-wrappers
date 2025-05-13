@@ -190,6 +190,8 @@ class Experiment:
             for tolerance in self.tolerance_dict.values():
                 if tolerance <= 0:
                     raise ValueError("Acceptance criteria improperly defined")
+        else:
+            self.tolerance_dict = None
 
         if (
             "changed_baseline_params"
