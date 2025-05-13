@@ -316,9 +316,8 @@ def products_from_inputs_index(
             f"{output_dir}/simulations/simulation={simulation_index}/"
         )
         os.makedirs(simulation_data_part_path, exist_ok=True)
-        pl.DataFrame(
-            {"simulation": sim_bundle.results[simulation_index]}
-        ).write_parquet(simulation_data_part_path + "data.parquet")
+        
+        sim_bundle.results[simulation_index].write_parquet(simulation_data_part_path + "data.parquet")
 
     if clean:
         # Delete raw_output file if cleaning intermediates
