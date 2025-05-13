@@ -471,7 +471,10 @@ class Experiment:
             f"simulation_{simulation_index}.{self.input_file_type}"
         )
 
-        if write_inputs_cmd is None:
+        if (
+            write_inputs_cmd is None
+            and simulation_index % self.n_simulations == 0
+        ):
             print(
                 "No preprocessing step supplied to transform input parameters. Printing directly to file"
             )
