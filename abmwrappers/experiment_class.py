@@ -225,10 +225,11 @@ class Experiment:
             self.create_pool = experimental_config["azb"]["create_pool"]
 
         if self.tolerance_dict is None or self.target_data is None:
-            raise Warning(
+            warnings.warn(
                 """Target data and/or tolerance dict are currently specified as None.
                     No ABC routines can be run without at least one tolerance step and target data
-                    declared through config file."""
+                    declared through config file.""",
+                UserWarning,
             )
 
     def initialize_simbundle(
@@ -398,8 +399,9 @@ class Experiment:
                 f"Simulation bundle for step {step_id} not found."
             )
         if step_id != self.current_step:
-            raise Warning(
-                f"Index {simulation_index} exists in step {step_id}, which is not the current experiment step {self.current_step}. Proceeding..."
+            warnings.warn(
+                f"Index {simulation_index} exists in step {step_id}, which is not the current experiment step {self.current_step}. Proceeding...",
+                UserWarning,
             )
         return self.simulation_bundles[step_id]
 
