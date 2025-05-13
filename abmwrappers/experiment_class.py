@@ -57,8 +57,13 @@ class Experiment:
 
             self.simulation_bundles = {}
             self.current_step = None
+
+            # Optional inputs for use in getters or wrappers later
+            # These can likewise be decalred to each helper function independently
             self.priors = prior_distribution_dict
             self.perturbation_kernel_dict = perturbation_kernel_dict
+            self.distance_fn = distance_fn
+            self.data_processing_fn = data_processing_fn
 
             if os.path.exists(config_file):
                 self.load_config_params()
