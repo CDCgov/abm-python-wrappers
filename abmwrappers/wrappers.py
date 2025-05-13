@@ -350,8 +350,8 @@ def run_pool_simulations(
 
 def experiment_runner(
     experiment: experiment_class.Experiment,
-    data_processing_fn: Callable,
-    distance_fn: Callable,
+    data_processing_fn: Callable = None,
+    distance_fn: Callable = None,
     prior_distribution_dict: dict = None,
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
