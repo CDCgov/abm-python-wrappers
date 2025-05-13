@@ -1,5 +1,6 @@
 import os
 import pickle
+import random
 import subprocess
 import warnings
 from typing import Callable
@@ -238,6 +239,7 @@ class Experiment:
         changed_baseline_params: dict = {},
         scenario_key: str = None,
         unflatten: bool = True,
+        seed_variable_name: str = "randomSeed",
     ) -> SimulationBundle:
         if len(changed_baseline_params) > 0:
             print(
@@ -274,8 +276,18 @@ class Experiment:
                 seed=self.seed,
             )
         else:
-            raise ValueError(
-                "Prior distribution not specified on expeirment initiation or on simbundle declaration."
+            warnings.warn(
+                "No prior distribution specified. Making empty inputs of simulation index and random seed for number of replicates instead. ABC SMC will fail if called.",
+                UserWarning,
+            )
+            input_df = pl.DataFrame(
+                {
+                    "simulation": range(self.replicates),
+                    seed_variable_name: [
+                        random.randint(0, 2**32)
+                        for _ in range(self.replicates)
+                    ],
+                }
             )
 
         # Create simulation bundle
@@ -329,6 +341,7 @@ class Experiment:
     def resample_for_next_abc_step(
         self,
         perturbation_kernel_dict: dict = None,
+        prior_distribution_dict: dict = None,
     ):
         """
         Resample the simulation bundle for the current step
@@ -339,6 +352,15 @@ class Experiment:
             raise ValueError(
                 "Perturbation kernel not specified on experiment initiation or during resample."
             )
+        if self.priors is None and prior_distribution_dict is None:
+            raise ValueError(
+                "Prior distribution not specified on experiment initiation or during resample."
+            )
+        if prior_distribution_dict is not None and self.priors is None:
+            print(
+                "Prior distribution specified during resample. Updating prior."
+            )
+            self.priors = prior_distribution_dict
 
         # Accept or reject simulation distances in current step
         current_bundle: SimulationBundle = self.simulation_bundles[
