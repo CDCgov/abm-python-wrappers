@@ -239,7 +239,7 @@ class Experiment:
         scenario_key: str = None,
         unflatten: bool = True,
     ) -> SimulationBundle:
-        if changed_baseline_params.len() > 0:
+        if len(changed_baseline_params) > 0:
             print(
                 "Changed baseline parameters specified from config file. Updating baseline parameters and overwriting common keys."
             )
