@@ -203,13 +203,9 @@ class Experiment:
             "changed_baseline_params"
             in experimental_config["experiment_conditions"]
         ):
-            print(experimental_config["experiment_conditions"][
-                    "changed_baseline_params"
-                ])
-            self.changed_baseline_params =  experimental_config["experiment_conditions"][
-                    "changed_baseline_params"
-                ]
-            print(self.changed_baseline_params)
+            self.changed_baseline_params = experimental_config[
+                "experiment_conditions"
+            ]["changed_baseline_params"]
         else:
             self.changed_baseline_params = {}
 
@@ -472,8 +468,7 @@ class Experiment:
             f"simulation_{simulation_index}.{self.input_file_type}"
         )
 
-        if (write_inputs_cmd is None):
-            
+        if write_inputs_cmd is None:
             if simulation_index % self.n_simulations == 0:
                 print(
                     "No preprocessing step supplied to transform input parameters. Printing directly to file"
@@ -532,6 +527,7 @@ class Experiment:
             "exe_file": self.exe_file,
             "model_type": self.model_type,
             "input_file_type": self.input_file_type,
+            "changed_baseline_params": self.changed_baseline_params,
             "target_data": self.target_data,
             "seed": self.seed,
             "n_particles": self.n_particles,
@@ -573,6 +569,7 @@ class Experiment:
         self.exe_file = data["exe_file"]
         self.model_type = data["model_type"]
         self.input_file_type = data["input_file_type"]
+        self.changed_baseline_params = data["changed_baseline_params"]
         self.target_data = data["target_data"]
         self.seed = data["seed"]
         self.n_particles = data["n_particles"]
