@@ -276,7 +276,6 @@ def abcsmc_experiment_runner(
 
         job_name = utils.generate_job_name(job_prefix)
         client.add_job(job_name, task_id_ints=True)
-        client.monitor_job(job_name, timeout=36000)
 
         # Identifying file locations wihtin blob storage
         blob_experiment_directory = os.path.join(
@@ -328,11 +327,13 @@ def abcsmc_experiment_runner(
                 depends_on_range=task_range,
             )
 
+        client.monitor_job(job_name, timeout=3600)
         client.download_file(
             src_path=os.path.join(
                 experiment.sub_experiment_name, "experiment_history.pkl"
             ),
             dest_path=experiment_file,
+            container_name=blob_container_name,
         )
 
     else:
