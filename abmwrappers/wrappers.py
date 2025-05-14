@@ -258,6 +258,11 @@ def abcsmc_experiment_runner(
                 print("Experiment terminated by user.")
                 return
 
+        if experiment.model_type == "gcm":
+            experiment.exe_file = "app/app.jar"
+        elif experiment.model_type == "ixa":
+            experiment.exe_file = "app/app"
+
         experiment.compress_and_save(experiment_file)
         files_to_upload.append(experiment_file)
 
@@ -296,6 +301,11 @@ def abcsmc_experiment_runner(
         gather_task_id = None
         for step, tolerance in experiment.tolerance_dict.items():
             tasks_id_range = []
+            
+            if step == max(experiment.tolerance_dict.keys()):
+                products = ["distances", "simulations"]
+            else:
+                products = ["distances"]
 
             for simulation_index in range(experiment.n_simulations):
                 task_i_cmd = f"poetry python run /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
