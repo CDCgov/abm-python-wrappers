@@ -12,7 +12,7 @@ def main(
     products: list = None,
     products_output_dir: str = None,
 ):
-    experiment = Experiment(img_file)
+    experiment = Experiment(img_file=img_file)
     wrappers.products_from_inputs_index(
         simulation_index=simulation_index,
         experiment=experiment,
