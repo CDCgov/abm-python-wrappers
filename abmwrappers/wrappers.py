@@ -280,7 +280,7 @@ def abcsmc_experiment_runner(
 
         # Identifying file locations wihtin blob storage
         blob_experiment_directory = os.path.join(
-            experiment.sub_experiment_name, experiment.sub_experiment_name
+            blob_container_name, experiment.sub_experiment_name
         )
         gather_script = os.path.join(
             blob_experiment_directory, "gather_step.py"
