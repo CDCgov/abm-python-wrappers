@@ -325,7 +325,7 @@ def abcsmc_experiment_runner(
             gather_task_id = client.add_task(
                 job_id=job_name,
                 docker_cmd=gather_task_cmd,
-                depends_on=task_range,
+                depends_on_range=task_range,
             )
 
         client.download_file(
