@@ -308,11 +308,12 @@ class Experiment:
 
         history = {}
         for step, bundle in data["skinny_bundles"].items():
-            bundle_to_append = SimulationBundle(bundle.inputs, bundle.step_number, bundle.baseline_params)
-            bundle_to_append.distances = bundle.distances
-            bundle_to_append.weights = bundle.weights
-            bundle_to_append.accepted = bundle.accepted
-            bundle_to_append.acceptance_weights = bundle.acceptance_weights
+            bundle_to_append = SimulationBundle(bundle["inputs"], bundle["step_number"], bundle["baseline_params"])
+            bundle_to_append.distances = bundle["distances"]
+            bundle_to_append.weights = bundle["weights"]
+            bundle_to_append.accepted = bundle["accepted"]
+            if "acceptance_weights" in bundle:
+                bundle_to_append.acceptance_weights = bundle["acceptance_weights"]
             history.update({step: bundle_to_append})
 
         # Unpack the data into the experiment object
