@@ -306,6 +306,15 @@ class Experiment:
         with open(input_file, "rb") as f:
             data = pickle.load(f)
 
+        history = {}
+        for step, bundle in data["skinny_bundles"].items():
+            bundle_to_append = SimulationBundle(bundle.inputs, bundle.step_number, bundle.baseline_params)
+            bundle_to_append.distances = bundle.distances
+            bundle_to_append.weights = bundle.weights
+            bundle_to_append.accepted = bundle.accepted
+            bundle_to_append.acceptance_weights = bundle.acceptance_weights
+            history.update({step: bundle_to_append})
+
         # Unpack the data into the experiment object
         self.config_file = data["config_file"]
         self.directory = data["directory"]
@@ -318,10 +327,7 @@ class Experiment:
         self.seed = data["seed"]
         self.n_particles = data["n_particles"]
         self.replicates = data["replicates"]
-        self.simulation_bundles = {
-            step: SimulationBundle(**bundle)
-            for step, bundle in data["skinny_bundles"].items()
-        }
+        self.simulation_bundles = history
         self.current_step = data["current_step"]
         self.tolerance_dict = data["tolerance_dict"]
         self.priors = data["priors"]
