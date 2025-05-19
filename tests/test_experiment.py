@@ -1,13 +1,17 @@
 import os
+
+from abctools.abc_classes import SimulationBundle
 from polars.testing import assert_frame_equal
 
 from abmwrappers.experiment_class import Experiment
-from abctools.abc_classes import SimulationBundle
+
 
 def test_compress_and_restore():
-    experiment = Experiment(experiments_directory="tests",
-                            config_file="tests/input/test_config.yaml")
-    
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+    )
+
     init_bundle = experiment.initialize_simbundle()
     output_file = "tests/output/experiment_history.pkl"
     os.makedirs("tests/output", exist_ok=True)

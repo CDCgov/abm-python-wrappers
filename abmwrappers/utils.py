@@ -135,10 +135,11 @@ def gcm_parameters_writer(
 def combine_params_dicts(
     baseline_dict: dict,
     new_dict: dict,
+    overwrite: bool = False,
     scenario_key: str = "baseScenario",
     unflatten: bool = True,
-    sep=FLATTENED_PARAM_CONNECTOR,
-) -> Tuple[dict, str]:
+    sep=">>>",
+) -> dict:
     """
     Combines two dictionaries by overwriting values in baseline_dict with values from new_dict.
     new_dict is a flatted input dictionary with keys separated by FLATTENED_PARAM_CONNECTOR.
@@ -150,6 +151,8 @@ def combine_params_dicts(
         new_dict (dict): The dictionary containing new values to be combined.
         scenario_key (str): any scenario key which the values fall under (will be preserved)
         unflatten (bool): whether to unflatten nested parameters
+        sep (str): The separator used to flatten the dictionary keys.
+        overwrite (bool): If True, overwrite existing hierarchical keys with the nexted dict of their counterparts in the new dictionary.
 
     Returns:
         Tuple[dict, str]: A tuple containing the combined dictionary and a summary string.
@@ -160,29 +163,38 @@ def combine_params_dicts(
 
     temp_dict = baseline_dict[scenario_key]
 
-    temp_dict = flatten_dict(temp_dict, sep=sep)
+    temp_dict = utils.flatten_dict(temp_dict, sep=sep)
 
     updated_keys = []
+    remove_keys = []
     for key, value in new_dict.items():
+        print(key)
         if key not in temp_dict:
-            raise Exception(f"'{key}' not present in default params list.")
+            if overwrite:
+                upper_key = key.split(sep)[0]
+                if upper_key not in updated_keys:
+                    updated_keys.append(upper_key)
+                    for key in temp_dict.keys():
+                        if key.startswith(upper_key):
+                            remove_keys.append(key)
+                temp_dict.update({key: value})
+            else:
+                raise Exception(f"'{key}' not present in default params list.")
 
         temp_dict[key] = value
         updated_keys.append(key)
 
-    not_modified_keys = set(temp_dict.keys()) - set(updated_keys)
-
-    result_string = (
-        f"Updated keys: {updated_keys}\nNot modified keys: {not_modified_keys}"
-    )
+    # Remove keys that are not in the new dictionary
+    for key in remove_keys:
+        temp_dict.pop(key)
 
     if unflatten:
-        temp_dict = unflatten_dict(temp_dict, sep=sep)
+        temp_dict = utils.unflatten_dict(temp_dict, sep=sep)
 
     # Re-introduce the scenario key
     combined_dict = {scenario_key: temp_dict}
 
-    return combined_dict, result_string
+    return combined_dict
 
 
 def load_baseline_params(
