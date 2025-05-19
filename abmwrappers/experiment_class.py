@@ -344,6 +344,7 @@ class Experiment:
         self.seed = data["seed"]
         self.n_particles = data["n_particles"]
         self.replicates = data["replicates"]
+        self.n_simulations = self.n_particles * self.replicates
         self.simulation_bundles = history
         self.current_step = data["current_step"]
         self.tolerance_dict = data["tolerance_dict"]
