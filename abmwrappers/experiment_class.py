@@ -114,44 +114,51 @@ class Experiment:
             "sub_experiment_name"
         ]
 
-        specified_experiment_path = os.path.join(
-            self.experiments_path,
-            self.super_experiment_name,
-            self.sub_experiment_name,
-        )
-
-        # Check if the config file directory specified is the same as the file string
-        if (
-            self.directory != specified_experiment_path
-            and self.directory != self.experiments_path
-        ):
-            raise ValueError(
-                f"Config file directory {self.directory} does not match the experiment path {specified_experiment_path} specified in file and isn't at expeirments folder root {self.experiments_path}."
+        # Check if the experiment name is specified
+        if self.super_experiment_name is not None:
+            specified_experiment_path = os.path.join(
+                self.experiments_path,
+                self.super_experiment_name,
+                self.sub_experiment_name,
             )
 
-        if self.directory == self.experiments_path:
-            os.makedirs(specified_experiment_path, exist_ok=True)
-            print(
-                f"Writing experiment config file to {specified_experiment_path}"
-            )
-            config_file = os.path.join(
-                specified_experiment_path, "input", "config_abc.yaml"
-            )
-            if os.path.exists(config_file):
-                user_input = (
-                    input(
-                        f"Experiment config file {config_file} already exists. Overwrite experiment? (Y/N): "
-                    )
-                    .strip()
-                    .upper()
+            # Check if the config file directory specified is the same as the file string
+            if (
+                self.directory != specified_experiment_path
+                and self.directory != self.experiments_path
+            ):
+                raise ValueError(
+                    f"Config file directory {self.directory} does not match the experiment path {specified_experiment_path} specified in file and isn't at expeirments folder root {self.experiments_path}."
                 )
-                if user_input != "Y":
-                    print("Experiment terminated by user.")
-                    return
-            with open(config_file, "w") as f:
-                yaml.dump(experimental_config, f)
 
-            self.directory = specified_experiment_path
+            if self.directory == self.experiments_path:
+                os.makedirs(specified_experiment_path, exist_ok=True)
+                print(
+                    f"Writing experiment config file to {specified_experiment_path}"
+                )
+                config_file = os.path.join(
+                    specified_experiment_path, "input", "config_abc.yaml"
+                )
+                if os.path.exists(config_file):
+                    user_input = (
+                        input(
+                            f"Experiment config file {config_file} already exists. Overwrite experiment? (Y/N): "
+                        )
+                        .strip()
+                        .upper()
+                    )
+                    if user_input != "Y":
+                        print("Experiment terminated by user.")
+                        return
+                with open(config_file, "w") as f:
+                    yaml.dump(experimental_config, f)
+
+                self.directory = specified_experiment_path
+        else:
+            self.directory = self.experiments_path
+            print(
+                "No super experiment specified, operating in root experiments directory"
+            )
 
         # --------------------------------------------
         # Experimental components
@@ -308,12 +315,21 @@ class Experiment:
 
         history = {}
         for step, bundle in data["skinny_bundles"].items():
-            bundle_to_append = SimulationBundle(bundle["inputs"], bundle["step_number"], bundle["baseline_params"])
-            bundle_to_append.distances = bundle["distances"]
-            bundle_to_append.weights = bundle["weights"]
-            bundle_to_append.accepted = bundle["accepted"]
+            bundle_to_append = SimulationBundle(
+                bundle["inputs"],
+                bundle["_step_number"],
+                bundle["_baseline_params"],
+            )
+            if "distances" in bundle:
+                bundle_to_append.distances = bundle["distances"]
+            if "weights" in bundle:
+                bundle_to_append.weights = bundle["weights"]
+            if "accepted" in bundle:
+                bundle_to_append.accepted = bundle["accepted"]
             if "acceptance_weights" in bundle:
-                bundle_to_append.acceptance_weights = bundle["acceptance_weights"]
+                bundle_to_append.acceptance_weights = bundle[
+                    "acceptance_weights"
+                ]
             history.update({step: bundle_to_append})
 
         # Unpack the data into the experiment object
@@ -453,7 +469,7 @@ class Experiment:
         )
 
         # Add simulation bundle to dictionary
-        self.simulation_bundles[sim_bundle.step_number] = sim_bundle
+        self.simulation_bundles[sim_bundle._step_number] = sim_bundle
         self.current_step = 0
 
         return sim_bundle
@@ -585,11 +601,11 @@ class Experiment:
         new_bundle = SimulationBundle(
             inputs=new_inputs,
             step_number=self.current_step + 1,
-            baseline_params=current_bundle.baseline_params,
+            baseline_params=current_bundle._baseline_params,
         )
 
         # Add simulation bundle to dictionary
-        self.simulation_bundles[new_bundle.step_number] = new_bundle
+        self.simulation_bundles[new_bundle._step_number] = new_bundle
         self.current_step += 1
 
     def write_simulation_inputs_to_file(
@@ -624,7 +640,7 @@ class Experiment:
             scenario_key = self.scenario_key
 
         simulation_params, _summary_string = utils.combine_params_dicts(
-            sim_bundle.baseline_params,
+            sim_bundle._baseline_params,
             input_dict[simulation_index],
             scenario_key=scenario_key,
         )
