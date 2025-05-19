@@ -150,6 +150,7 @@ def combine_params_dicts(
         baseline_dict (dict): The baseline dictionary.
         new_dict (dict): The dictionary containing new values to be combined.
         scenario_key (str): any scenario key which the values fall under (will be preserved)
+        overwrite_unnested (bool): whether to overwrite the nested elements of a particular key during combination
         unflatten (bool): whether to unflatten nested parameters
 
     Returns:
@@ -181,14 +182,17 @@ def combine_params_dicts(
     # clean up keys that have duplicate nested keys in the new temp dict
     if overwrite_unnested:
         unflat_new = unflatten_dict(new_dict, sep=sep)
-        for key, value in temp_dict.keys():
+        to_remove = []
+        for key in temp_dict.keys():
             splitkeys = key.split(sep)
             if (
                 len(splitkeys) > 2
                 and splitkeys[0] in unflat_new.keys()
-                and splitkeys[1] not in unflat_new.keys()
+                and splitkeys[1] not in unflat_new[splitkeys[0]].keys()
             ):
-                temp_dict.pop(key)
+                to_remove.append(key)
+        for key in to_remove:
+            temp_dict.pop(key)
 
     if unflatten:
         temp_dict = unflatten_dict(temp_dict, sep=sep)
