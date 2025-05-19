@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import random
@@ -6,6 +7,7 @@ import subprocess
 import warnings
 from typing import Callable
 
+import griddler
 import polars as pl
 import yaml
 from abctools import abc_methods
@@ -680,3 +682,72 @@ class Experiment:
                 f.write(formatted_inputs)
             subprocess.run(write_inputs_cmd.split(), check=True)
             return input_dir
+
+    def write_simulation_inputs_from_griddle(
+        self,
+        input_griddle: str = None,
+        scenario_key: str = None,
+        unflatten: bool = True,
+    ):
+        """
+        Write simulation inputs from a griddler parameter set
+        :param input_griddle: The path to the griddler parameter set
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+        :param unflatten: Whether to unflatten the parameter set or not
+        :return: None
+
+        This function will read the griddler parameter set and write the simulation inputs to the input directory
+        If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
+        """
+        if input_griddle is None:
+            raise ValueError(
+                "No griddler parameter set specified. Please provide a griddler parameter set."
+            )
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+
+        # Load the parameter set
+        with open(input_griddle, "r") as f:
+            raw_griddle = json.load(f)
+
+        griddle = griddler.Griddle(raw_griddle)
+        par_sets = griddle.parse()
+
+        ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
+        ## Change to combine param dicts
+
+        baseline_params, _summary_string = utils.load_baseline_params(
+            self.default_params_file,
+            self.changed_baseline_params,
+            scenario_key,
+            unflatten,
+        )
+
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+        simulation_index = 0
+
+        for par in par_sets:
+            # Remove the griddler scenario keys from the parameter set
+            to_remove = []
+            for key in par.keys():
+                if key.startswith("scenario"):
+                    to_remove.append(key)
+            for key in to_remove:
+                par.pop(key)
+
+            newpars, _summary = utils.combine_params_dicts(
+                baseline_dict=baseline_params,
+                new_dict=par,
+                scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                overwrite_unnested=True,
+                unflatten=unflatten,
+            )
+            # Add the scenario key to the parameter set
+
+            input_file_name = (
+                f"simulation_{simulation_index}.{self.input_file_type}"
+            )
+            with open(os.path.join(input_dir, input_file_name), "w") as f:
+                json.dump(newpars, f, indent=4)
+            simulation_index += 1
