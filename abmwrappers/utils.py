@@ -64,11 +64,11 @@ def write_default_cmd(
         ]
     elif model_type == "ixa":
         cmd = [
-            exe_file,
+            f"./{exe_file}",
             "--config",
-            input_file,
+            f"./{input_file}",
             "--prefix",
-            output_dir,
+            f"./{output_dir}/",
         ]
     else:
         raise ValueError(
