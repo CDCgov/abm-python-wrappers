@@ -163,15 +163,18 @@ def combine_params_dicts(
 
     temp_dict = baseline_dict[scenario_key]
 
-    temp_dict = utils.flatten_dict(temp_dict, sep=sep)
+    temp_dict = flatten_dict(temp_dict, sep=sep)
 
     updated_keys = []
     remove_keys = []
     for key, value in new_dict.items():
-        print(key)
         if key not in temp_dict:
             if overwrite:
                 upper_key = key.split(sep)[0]
+                warnings.warn(
+                    f"'{key}' not present in default params list and overwrite is set to True. "
+                    f"Overwriting {upper_key} and removing all its nested elements."
+                )
                 if upper_key not in updated_keys:
                     updated_keys.append(upper_key)
                     for key in temp_dict.keys():
@@ -179,7 +182,7 @@ def combine_params_dicts(
                             remove_keys.append(key)
                 temp_dict.update({key: value})
             else:
-                raise Exception(f"'{key}' not present in default params list.")
+                raise Exception(f"'{key}' not present in default params list and overwrite is set to False.")
 
         temp_dict[key] = value
         updated_keys.append(key)
@@ -189,7 +192,7 @@ def combine_params_dicts(
         temp_dict.pop(key)
 
     if unflatten:
-        temp_dict = utils.unflatten_dict(temp_dict, sep=sep)
+        temp_dict = unflatten_dict(temp_dict, sep=sep)
 
     # Re-introduce the scenario key
     combined_dict = {scenario_key: temp_dict}
