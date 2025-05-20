@@ -117,7 +117,10 @@ class Experiment:
         ]
 
         # Check if the experiment name is specified
-        if self.super_experiment_name is not None:
+        if (
+            self.super_experiment_name is not None
+            and self.sub_experiment_name is not None
+        ):
             specified_experiment_path = os.path.join(
                 self.experiments_path,
                 self.super_experiment_name,
@@ -162,6 +165,12 @@ class Experiment:
                 "No super experiment specified, operating in root experiments directory"
             )
 
+        # Check if scenario griddle file is specified
+        if "griddle_file" in experimental_config["local_path"]:
+            self.griddle_file = experimental_config["local_path"][
+                "griddle_file"
+            ]
+
         # --------------------------------------------
         # Experimental components
         self.data_path = os.path.join(self.directory, "data")
@@ -193,6 +202,9 @@ class Experiment:
         self.replicates = experimental_config["experiment_conditions"][
             "replicates_per_particle"
         ]
+        if self.replicates is None:
+            self.replicates = 1
+
         self.n_simulations = self.n_particles * self.replicates
 
         # Tolerance can be specified for each step or stored as a null in the case of not running abcsmc using the wrappers
@@ -688,6 +700,7 @@ class Experiment:
         input_griddle: str = None,
         scenario_key: str = None,
         unflatten: bool = True,
+        seed_key: str = "seed",
     ):
         """
         Write simulation inputs from a griddler parameter set
@@ -700,9 +713,12 @@ class Experiment:
         If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
         """
         if input_griddle is None:
-            raise ValueError(
-                "No griddler parameter set specified. Please provide a griddler parameter set."
-            )
+            if self.griddle_file is not None:
+                input_griddle = self.griddle_file
+            else:
+                raise ValueError(
+                    "No griddler parameter set specified. Please provide a griddler parameter set."
+                )
         if scenario_key is None:
             scenario_key = self.scenario_key
 
@@ -743,11 +759,15 @@ class Experiment:
                 overwrite_unnested=True,
                 unflatten=unflatten,
             )
-            # Add the scenario key to the parameter set
+            # Add the scenario key to the parameter set with replicates if specified
+            for i in range(self.replicates):
+                if self.replicates > 1:
+                    changed_seed = {seed_key: random.randint(0, 2**32)}
+                    newpars.update(changed_seed)
 
-            input_file_name = (
-                f"simulation_{simulation_index}.{self.input_file_type}"
-            )
-            with open(os.path.join(input_dir, input_file_name), "w") as f:
-                json.dump(newpars, f, indent=4)
-            simulation_index += 1
+                input_file_name = (
+                    f"simulation_{simulation_index}.{self.input_file_type}"
+                )
+                with open(os.path.join(input_dir, input_file_name), "w") as f:
+                    json.dump(newpars, f, indent=4)
+                simulation_index += 1

@@ -366,3 +366,18 @@ def abcsmc_experiment_runner(
                 )
 
             experiment.resample_for_next_abc_step(perturbation_kernels)
+
+
+def split_scenarios_into_subexperiments(
+    experiment: Experiment,
+    griddle_path: str = None,
+    scenario_key: str = None,
+    seed_key: str = None,
+):
+    """
+    Splits a series of inputs into sub-experiments under a scenario=index data structure
+    """
+    if experiment.replicates > 1:
+        raise ValueError(
+            "Experiment should be run with replicates=1 to split into sub-experiments"
+        )
