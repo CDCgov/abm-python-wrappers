@@ -438,3 +438,7 @@ def split_scenarios_into_subexperiments(
 
         subexperiment.initialize_simbundle()
         index += 1
+    
+    # Delete empty data directory
+    os.rmdir(os.path.join(experiment.data_path, "input"))
+    os.rmdir(experiment.data_path)
