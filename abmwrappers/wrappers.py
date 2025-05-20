@@ -3,6 +3,7 @@ from multiprocessing import Pool
 from typing import Callable
 
 import polars as pl
+import yaml
 from cfa_azure.clients import AzureClient
 
 from abmwrappers import utils
@@ -377,7 +378,63 @@ def split_scenarios_into_subexperiments(
     """
     Splits a series of inputs into sub-experiments under a scenario=index data structure
     """
-    if experiment.replicates > 1:
-        raise ValueError(
-            "Experiment should be run with replicates=1 to split into sub-experiments"
+
+    # Griddle scenarios should each generate one input file, but resulting experiments may require multiple replciates
+    experiment.replicates = 1
+
+    if griddle_path is None:
+        if experiment.griddle_file is None:
+            raise ValueError(
+                "Griddle path must be provided if not previously declared in Experiment parameters."
+            )
+        griddle_path = experiment.griddle_file
+
+    # Write all inputs
+    experiment.write_simulation_inputs_from_griddle(
+        griddle_path, scenario_key=scenario_key, seed_key=seed_key
+    )
+
+    # Store each simulation input as the base for a scenario=index subfolder in data
+    input_folder = os.path.join(experiment.data_path, "input")
+    input_files = os.listdir(input_folder)
+
+    index = 0
+    experiment.experiments_path = experiment.super_experiment_name
+    scenarios_name = "scenarios"
+    for input in input_files:
+        if not input.endswith(experiment.input_file_type):
+            continue
+
+        input_file_path = os.path.join(input_folder, input)
+
+        # Create the base input files for each scenario
+        scenario_subexperiment = f"scenario={index}"
+        scenario_input_path = os.path.join(
+            experiment.directory,
+            scenarios_name,
+            scenario_subexperiment,
+            "input",
         )
+        os.makedirs(scenario_input_path, exist_ok=True)
+        new_location = os.path.join(
+            scenario_input_path, f"base.{experiment.input_file_type}"
+        )
+        os.rename(input_file_path, new_location)
+
+        # Read in the config and rewrite the subexperiment and superexperiment names
+        new_config = os.path.join(scenario_input_path, "config.yaml")
+        with open(experiment.config_file, "r") as f:
+            config = yaml.load(f, Loader=yaml.SafeLoader)
+        config["local_path"]["super_experiment_name"] = scenarios_name
+        config["local_path"]["sub_experiment_name"] = scenario_subexperiment
+        with open(new_config, "w") as f:
+            yaml.dump(config, f)
+
+        # Create the experiment object
+        subexperiment = Experiment(
+            experiments_directory=experiment.directory,
+            config_file=new_config,
+        )
+
+        subexperiment.initialize_simbundle()
+        index += 1
