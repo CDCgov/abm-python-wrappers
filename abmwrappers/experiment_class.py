@@ -763,7 +763,13 @@ class Experiment:
             for i in range(self.replicates):
                 if self.replicates > 1:
                     changed_seed = {seed_key: random.randint(0, 2**32)}
-                    newpars.update(changed_seed)
+                    newpars, _summary = utils.combine_params_dicts(
+                        baseline_dict=newpars,
+                        new_dict=changed_seed,
+                        scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                        overwrite_unnested=True,
+                        unflatten=unflatten,
+                    )
 
                 input_file_name = (
                     f"simulation_{simulation_index}.{self.input_file_type}"
