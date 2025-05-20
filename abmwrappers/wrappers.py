@@ -416,10 +416,10 @@ def split_scenarios_into_subexperiments(
             "input",
         )
         os.makedirs(scenario_input_path, exist_ok=True)
-        new_location = os.path.join(
+        new_params_file = os.path.join(
             scenario_input_path, f"base.{experiment.input_file_type}"
         )
-        os.rename(input_file_path, new_location)
+        os.rename(input_file_path, new_params_file)
 
         # Read in the config and rewrite the subexperiment and superexperiment names
         new_config = os.path.join(scenario_input_path, "config.yaml")
@@ -427,6 +427,7 @@ def split_scenarios_into_subexperiments(
             config = yaml.load(f, Loader=yaml.SafeLoader)
         config["local_path"]["super_experiment_name"] = scenarios_name
         config["local_path"]["sub_experiment_name"] = scenario_subexperiment
+        config["local_path"]["default_params_file"] = new_params_file
         with open(new_config, "w") as f:
             yaml.dump(config, f)
 
