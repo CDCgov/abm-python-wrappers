@@ -489,13 +489,13 @@ class Experiment:
             )
         return self.simulation_bundles[step_id]
 
-    def read_parquet_data_to_current_step(
+    def read_parquet_distances_to_current_step(
         self, input_dir: str, write_results: bool = False
     ):
         """
         Read distances and simulation results into the simulation bundle history
         """
-        distances = pl.read_parquet(f"{input_dir}/distances/")
+        distances = pl.scan_parquet(f"{input_dir}/distances/")
 
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")
@@ -508,17 +508,6 @@ class Experiment:
 
         for k, v in zip(distances["simulation"], distances["distance"]):
             self.simulation_bundles[self.current_step].distances[k] = v
-
-        # These should be optionally stored, not just optionally written
-        if write_results:
-            simulations = pl.read_parquet(f"{input_dir}/simulations/")
-            with open(
-                os.path.join(
-                    input_dir, f"step_{self.current_step}_simulations.parquet"
-                ),
-                "wb",
-            ) as f:
-                simulations.write_parquet(f)
 
     # --------------------------------------------
     # Resampling between experiment steps
