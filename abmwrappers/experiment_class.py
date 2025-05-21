@@ -495,7 +495,8 @@ class Experiment:
         """
         Read distances and simulation results into the simulation bundle history
         """
-        distances = pl.scan_parquet(f"{input_dir}/distances/")
+        # Scan the hive partition parquet file and collect into a dataframe
+        distances = pl.scan_parquet(f"{input_dir}/distances/").collect()
 
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")
