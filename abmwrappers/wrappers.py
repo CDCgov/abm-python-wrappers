@@ -104,10 +104,6 @@ def products_from_inputs_index(
     if products is None:
         products = ["distances", "simulations"]
 
-    if distance_fn is None:
-        distance_fn = experiment.distance_fn
-    if data_processing_fn is None:
-        data_processing_fn = experiment.data_processing_fn
     if data_processing_fn is None:
         raise ValueError(
             "Data processing function must be provided if not previously declared in Experiment parameters."

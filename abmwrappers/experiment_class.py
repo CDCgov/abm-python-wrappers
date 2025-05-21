@@ -5,7 +5,6 @@ import random
 import shutil
 import subprocess
 import warnings
-from typing import Callable
 
 import griddler
 import polars as pl
@@ -29,8 +28,6 @@ class Experiment:
         img_file: str = None,
         prior_distribution_dict: dict = None,
         perturbation_kernel_dict: dict = None,
-        distance_fn: Callable = None,
-        data_processing_fn: Callable = None,
     ):
         """
         Initialize the experiment as either a new experiment using a config file or restore the history of a previously compressed and saved experiment
@@ -71,8 +68,6 @@ class Experiment:
             # These can likewise be decalred to each helper function independently
             self.priors = prior_distribution_dict
             self.perturbation_kernel_dict = perturbation_kernel_dict
-            self.distance_fn = distance_fn
-            self.data_processing_fn = data_processing_fn
 
             if os.path.exists(config_file):
                 self.load_config_params()
@@ -309,8 +304,6 @@ class Experiment:
             "tolerance_dict": self.tolerance_dict,
             "priors": self.priors,
             "perturbation_kernel_dict": self.perturbation_kernel_dict,
-            "distance_fn": self.distance_fn,
-            "data_processing_fn": self.data_processing_fn,
         }
 
         # Save the data to a compressed pickle file
@@ -366,14 +359,6 @@ class Experiment:
         self.perturbation_kernel_dict = (
             data["perturbation_kernel_dict"]
             if "perturbation_kernel_dict" in data
-            else None
-        )
-        self.distance_fn = (
-            data["distance_fn"] if "distance_fn" in data else None
-        )
-        self.data_processing_fn = (
-            data["data_processing_fn"]
-            if "data_processing_fn" in data
             else None
         )
 
