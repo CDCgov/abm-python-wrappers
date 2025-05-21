@@ -200,10 +200,14 @@ def abcsmc_update_compressed_experiment(
 
     # Load the distances
     experiment.read_parquet_data_to_current_step(input_dir=products_path)
-    print(f"I now have distances. Here is one of them {experiment.simulation_bundles[experiment.current_step].distances[25*experiment.current_step]}")
+    print(
+        f"I now have distances. Here is one of them {experiment.simulation_bundles[experiment.current_step].distances[25*experiment.current_step]}"
+    )
     experiment.resample_for_next_abc_step()
     print(f"I should have advanced to step {experiment.current_step}")
-    print(f"There should be a simulation bundle for this step with inputs {experiment.simulation_bundles[experiment.current_step].inputs}")
+    print(
+        f"There should be a simulation bundle for this step with inputs {experiment.simulation_bundles[experiment.current_step].inputs}"
+    )
 
     # Save the updated experiment
     experiment.compress_and_save(experiment_file)
@@ -439,7 +443,7 @@ def split_scenarios_into_subexperiments(
 
         subexperiment.initialize_simbundle()
         index += 1
-    
+
     # Delete empty data directory
     os.rmdir(os.path.join(experiment.data_path, "input"))
     os.rmdir(experiment.data_path)

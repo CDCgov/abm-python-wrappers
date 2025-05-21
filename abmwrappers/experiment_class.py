@@ -500,7 +500,7 @@ class Experiment:
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")
 
-        if self.simulation_bundles[self.current_step].distances:
+        if hasattr(self.simulation_bundles[self.current_step], "distances"):
             raise ValueError(
                 "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
             )
