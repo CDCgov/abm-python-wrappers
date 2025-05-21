@@ -63,12 +63,21 @@ def write_default_cmd(
             "4",
         ]
     elif model_type == "ixa":
+        # Handle relative paths cases if not specified as absolute
+        if not exe_file.startswith("/"):
+            exe_file = "./" + exe_file
+        if not input_file.startswith("/"):
+            input_file = "./" + input_file
+        if not output_dir.startswith("/"):
+            output_dir = "./" + output_dir
+        output_dir = output_dir + "/"
+
         cmd = [
-            f"./{exe_file}",
+            exe_file,
             "--config",
-            f"./{input_file}",
+            input_file,
             "--prefix",
-            f"./{output_dir}/",
+            output_dir,
         ]
     else:
         raise ValueError(
