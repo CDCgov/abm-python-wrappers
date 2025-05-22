@@ -498,7 +498,9 @@ class Experiment:
         """
         # Scan the hive partition parquet file and collect into a dataframe
         if self.azure_batch:
-            distances = utils.spark_parquet_to_polars(f"{input_dir}/distances/", "simulation")
+            distances = utils.spark_parquet_to_polars(
+                f"{input_dir}/distances/", "simulation"
+            )
         else:
             distances = pl.scan_parquet(f"{input_dir}/distances/").collect()
 
