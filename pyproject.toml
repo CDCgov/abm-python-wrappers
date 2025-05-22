@@ -19,6 +19,7 @@ sobol-seq = "^0.2.0"
 cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
 abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
 polars = "^1.6.0"
+pyspark = "^3.5.5"
 
 
 [build-system]

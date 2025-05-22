@@ -494,9 +494,13 @@ class Experiment:
     ):
         """
         Read distances and simulation results into the simulation bundle history
+        Currently yields OSError when called on a mounted blob container input directory
         """
         # Scan the hive partition parquet file and collect into a dataframe
-        distances = pl.scan_parquet(f"{input_dir}/distances/simulation=0/data.parquet").collect()
+        if self.azure_batch:
+            distances = utils.spark_parquet_to_polars(f"{input_dir}/distances/", "simulation")
+        else:
+            distances = pl.scan_parquet(f"{input_dir}/distances/").collect()
 
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")

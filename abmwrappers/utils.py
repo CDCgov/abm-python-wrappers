@@ -5,6 +5,8 @@ import os
 import subprocess
 import warnings
 from typing import Tuple
+from pyspark.sql import SparkSession
+import pyarrow as pa
 
 import numpy as np
 import polars as pl
@@ -43,6 +45,20 @@ def run_model_command_line(
             f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
         )
 
+def spark_parquet_to_polars(file_path: str, col: str) -> pl.DataFrame:
+    """
+    Reads a Parquet file using PySpark and converts it to a Polars DataFrame.
+
+    Args:
+        file_path (str): The path to the Parquet file.
+        col (str): The column name to be used for filtering.
+
+    Returns:
+        pl.DataFrame: A Polars DataFrame containing the filtered data.
+    """
+    spark = SparkSession.builder.appName("ReadParquet").getOrCreate()
+    spark_df = spark.read.parquet(file_path, partitionColumn=col)
+    return(pl.from_arrow(pa.Table.from_batches(spark_df._collect_as_arrow())))
 
 def write_default_cmd(
     input_file: str,
