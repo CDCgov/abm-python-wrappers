@@ -11,7 +11,7 @@ import polars as pl
 import pyarrow as pa
 import yaml
 from cfa_azure.clients import AzureClient
-from pyspark.sql import SparkSession
+# from pyspark.sql import SparkSession
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
 
@@ -46,20 +46,20 @@ def run_model_command_line(
         )
 
 
-def spark_parquet_to_polars(file_path: str, col: str) -> pl.DataFrame:
-    """
-    Reads a Parquet file using PySpark and converts it to a Polars DataFrame.
+# def spark_parquet_to_polars(file_path: str, col: str) -> pl.DataFrame:
+#     """
+#     Reads a Parquet file using PySpark and converts it to a Polars DataFrame.
 
-    Args:
-        file_path (str): The path to the Parquet file.
-        col (str): The column name to be used for filtering.
+#     Args:
+#         file_path (str): The path to the Parquet file.
+#         col (str): The column name to be used for filtering.
 
-    Returns:
-        pl.DataFrame: A Polars DataFrame containing the filtered data.
-    """
-    spark = SparkSession.builder.appName("ReadParquet").getOrCreate()
-    spark_df = spark.read.parquet(file_path, partitionColumn=col)
-    return pl.from_arrow(pa.Table.from_batches(spark_df._collect_as_arrow()))
+#     Returns:
+#         pl.DataFrame: A Polars DataFrame containing the filtered data.
+#     """
+#     spark = SparkSession.builder.appName("ReadParquet").getOrCreate()
+#     spark_df = spark.read.parquet(file_path, partitionColumn=col)
+#     return pl.from_arrow(pa.Table.from_batches(spark_df._collect_as_arrow()))
 
 
 def write_default_cmd(
