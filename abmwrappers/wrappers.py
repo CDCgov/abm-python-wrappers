@@ -1,6 +1,7 @@
 import os
 from multiprocessing import Pool
 from typing import Callable
+import subprocess
 
 import polars as pl
 import yaml
@@ -54,6 +55,12 @@ def run_pool_simulations(
             [(sim_dir, model_type, exe_file) for sim_dir in simulation_dirs],
         )
 
+def run_pool_tasks(cmds: list, num_processes: int = 8):
+    def quickrun(cmd):
+        subprocess.run(cmd.split())
+    
+    with Pool(processes=num_processes) as pool:
+        pool.map(quickrun, cmds)
 
 def download_outputs(
     azure_client: AzureClient,
