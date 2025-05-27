@@ -11,7 +11,7 @@ experiments_dir = "experiments"
 super_experiment_name = "wtk-gcm-azb"
 sub_experiment_name = "subexperiment_1"
 default_params_file = f"/{super_experiment_name}/config.yaml"
-print("hi")
+
 print(os.path.exists(default_params_file))
 jar_file = "/app.jar"  # local jar_file is "target/gcm-seir-mask-1.0.0-SNAPSHOT-jar-with-dependencies.jar"
 

@@ -131,6 +131,34 @@ def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
 
     return result
 
+def remove_directory_tree(
+    dir_path: str, remove_root: bool = True
+) -> None:
+    """
+    Recursively removes a directory tree.
+
+    Args:
+        dir_path (str): Path to the directory to be removed.
+        remove_root (bool): If True, removes the root directory as well. Defaults to True.
+    """
+    if not os.path.exists(dir_path):
+        return
+
+    # Iterate through all files and directories in the specified directory
+    for root, dirs, files in os.walk(dir_path, topdown=False):
+        # Remove all files in the current directory
+        for file in files:
+            file_path = os.path.join(root, file)
+            os.remove(file_path)
+
+        # Remove all subdirectories in the current directory
+        for dir_name in dirs:
+            dir_path = os.path.join(root, dir_name)
+            os.rmdir(dir_path)
+
+    # Remove the root directory if specified
+    if remove_root:
+        os.rmdir(dir_path)
 
 def gcm_parameters_writer(
     params: dict, output_type: str = "YAML", unflatten: bool = True

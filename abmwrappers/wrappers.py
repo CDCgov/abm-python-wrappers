@@ -203,18 +203,10 @@ def abcsmc_update_compressed_experiment(
 
     # Load the compressed experiment
     experiment = Experiment(img_file=experiment_file)
-    print(f"Currently on step {experiment.current_step}")
 
     # Load the distances
     experiment.read_parquet_distances_to_current_step(input_dir=products_path)
-    print(
-        f"I now have distances. Here is one of them {experiment.simulation_bundles[experiment.current_step].distances[25*experiment.current_step]}"
-    )
     experiment.resample_for_next_abc_step()
-    print(f"I should have advanced to step {experiment.current_step}")
-    print(
-        f"There should be a simulation bundle for this step with inputs {experiment.simulation_bundles[experiment.current_step].inputs}"
-    )
 
     # Save the updated experiment
     experiment.compress_and_save(experiment_file)
