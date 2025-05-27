@@ -152,9 +152,9 @@ def remove_directory_tree(dir_path: str, remove_root: bool = True) -> None:
             os.remove(file_path)
 
         # Remove all subdirectories in the current directory
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            os.rmdir(dir_path)
+        for subdir_name in dirs:
+            subdir_path = os.path.join(root, subdir_name)
+            os.rmdir(subdir_path)
 
     # Remove the root directory if specified
     if remove_root:
