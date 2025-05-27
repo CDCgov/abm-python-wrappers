@@ -391,6 +391,19 @@ def split_scenarios_into_subexperiments(
                 "Griddle path must be provided if not previously declared in Experiment parameters."
             )
         griddle_path = experiment.griddle_file
+    
+    if len(os.listdir(experiment.data_path)) > 0:
+        user_input = (
+            input(
+                f"Experiment data path {experiment.data_path} is not empty before writing inputs. Overwrite data path for scenarios? (Y/N): "
+            )
+            .strip()
+            .upper()
+        )
+        if user_input != "Y":
+            print("Scenario split terminated by user.")
+            return
+        utils.remove_directory_tree(experiment.data_path, remove_root = False)
 
     # Write all inputs
     experiment.write_simulation_inputs_from_griddle(
