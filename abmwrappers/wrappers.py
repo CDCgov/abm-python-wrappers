@@ -1,7 +1,7 @@
 import os
+import subprocess
 from multiprocessing import Pool
 from typing import Callable
-import subprocess
 
 import polars as pl
 import yaml
@@ -55,12 +55,14 @@ def run_pool_simulations(
             [(sim_dir, model_type, exe_file) for sim_dir in simulation_dirs],
         )
 
+
 def run_pool_tasks(cmds: list, num_processes: int = 8):
     def quickrun(cmd):
         subprocess.run(cmd.split())
-    
+
     with Pool(processes=num_processes) as pool:
         pool.map(quickrun, cmds)
+
 
 def download_outputs(
     azure_client: AzureClient,
@@ -391,7 +393,7 @@ def split_scenarios_into_subexperiments(
                 "Griddle path must be provided if not previously declared in Experiment parameters."
             )
         griddle_path = experiment.griddle_file
-    
+
     if len(os.listdir(experiment.data_path)) > 0:
         user_input = (
             input(
@@ -403,7 +405,7 @@ def split_scenarios_into_subexperiments(
         if user_input != "Y":
             print("Scenario split terminated by user.")
             return
-        utils.remove_directory_tree(experiment.data_path, remove_root = False)
+        utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
     # Write all inputs
     experiment.write_simulation_inputs_from_griddle(
@@ -417,11 +419,11 @@ def split_scenarios_into_subexperiments(
     index = 0
     experiment.experiments_path = experiment.super_experiment_name
     scenarios_name = "scenarios"
-    for input in input_files:
+    for fp in input_files:
         if not input.endswith(experiment.input_file_type):
             continue
 
-        input_file_path = os.path.join(input_folder, input)
+        input_file_path = os.path.join(input_folder, fp)
 
         # Create the base input files for each scenario
         scenario_subexperiment = f"scenario={index}"

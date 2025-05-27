@@ -11,6 +11,7 @@ import polars as pl
 import pyarrow as pa
 import yaml
 from cfa_azure.clients import AzureClient
+
 # from pyspark.sql import SparkSession
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
@@ -131,9 +132,8 @@ def unflatten_dict(flat_dict, sep=FLATTENED_PARAM_CONNECTOR):
 
     return result
 
-def remove_directory_tree(
-    dir_path: str, remove_root: bool = True
-) -> None:
+
+def remove_directory_tree(dir_path: str, remove_root: bool = True) -> None:
     """
     Recursively removes a directory tree.
 
@@ -159,6 +159,7 @@ def remove_directory_tree(
     # Remove the root directory if specified
     if remove_root:
         os.rmdir(dir_path)
+
 
 def gcm_parameters_writer(
     params: dict, output_type: str = "YAML", unflatten: bool = True
