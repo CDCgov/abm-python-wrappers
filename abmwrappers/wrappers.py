@@ -420,7 +420,7 @@ def split_scenarios_into_subexperiments(
     experiment.experiments_path = experiment.super_experiment_name
     scenarios_name = "scenarios"
     for fp in input_files:
-        if not input.endswith(experiment.input_file_type):
+        if not fp.endswith(experiment.input_file_type):
             continue
 
         input_file_path = os.path.join(input_folder, fp)
