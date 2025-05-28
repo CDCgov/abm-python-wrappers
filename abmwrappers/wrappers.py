@@ -223,6 +223,7 @@ def abcsmc_experiment_runner(
     changed_baseline_params: dict = {},
     files_to_upload: list = [],
     scenario_key: str = None,
+    local_compress: bool = False,
 ):
     if scenario_key is None:
         scenario_key = experiment.scenario_key
@@ -267,7 +268,9 @@ def abcsmc_experiment_runner(
         if experiment.model_type == "gcm":
             experiment.exe_file = "app/app.jar"
         elif experiment.model_type == "ixa":
-            experiment.exe_file = "app/app"
+            experiment.exe_file = (
+                f"/app/{os.path.basename(experiment.exe_file)}"
+            )
 
         experiment.compress_and_save(experiment_file)
         files_to_upload.append(experiment_file)
@@ -341,6 +344,34 @@ def abcsmc_experiment_runner(
             dest_path=experiment_file,
             container_name=blob_container_name,
         )
+    elif not local_compress:
+        task_script = "scripts/subprocesses/task.py"
+        experiment_path = os.path.join(
+            experiment.data_path, "experiment_history.pkl"
+        )
+        experiment.compress_and_save(experiment_path)
+        for step, tolerance in experiment.tolerance_dict.items():
+            print(
+                f"Running step {step} of {len(experiment.tolerance_dict)} with tolerance {tolerance}"
+            )
+
+            if step == max(experiment.tolerance_dict.keys()):
+                products = ["distances", "simulations"]
+            else:
+                products = ["distances"]
+
+            sim_cmds = []
+            for simulation_number in range(experiment.n_simulations):
+                simulation_index = (
+                    simulation_number + step * experiment.n_simulations
+                )
+                task_i_cmd = f"poetry run python {task_script} --index {simulation_index} -f {experiment_path} -k {scenario_key} -o {experiment.data_path} --clean --products "
+                task_i_cmd += " ".join(products)
+
+                subprocess.run(task_i_cmd.split())
+
+            # Gathering from compressed experiment file
+            abcsmc_update_compressed_experiment(experiment_path, experiment.data_path)
 
     else:
         for step, tolerance in experiment.tolerance_dict.items():
