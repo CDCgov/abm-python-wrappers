@@ -238,15 +238,16 @@ def abcsmc_experiment_runner(
 
     if experiment.azure_batch:
         print("Not fully implemented yet")
-        (
-            client,
-            blob_container_name,
-            job_prefix,
-        ) = utils.initialize_azure_client(
-            experiment.azb_config_path,
-            experiment.super_experiment_name,
-            experiment.create_pool,
-        )
+
+        if experiment.client is None:
+            raise ValueError(
+                "Azure client must be initialized using an Experiment created by a config file for Azure Batch execution. "
+                "New clients cannot be instantiated from compressed Experiments. "
+                "Set `azure_batch` to False in the Experiment config file to run locally or run ABC SMC from new Experiment."
+            )
+        job_prefix = experiment.job_prefix
+        blob_container_name = experiment.blob_container_name
+        client = experiment.client
 
         # Create experiment history file to Azure Blob Storage for initializing each step
         # If a compressed history already exists, offer off-ramp for user to abort
@@ -371,7 +372,9 @@ def abcsmc_experiment_runner(
                 subprocess.run(task_i_cmd.split())
 
             # Gathering from compressed experiment file
-            abcsmc_update_compressed_experiment(experiment_path, experiment.data_path)
+            abcsmc_update_compressed_experiment(
+                experiment_path, experiment.data_path
+            )
 
     else:
         for step, tolerance in experiment.tolerance_dict.items():

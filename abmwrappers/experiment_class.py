@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import warnings
 
+import cfa_azure.helpers as azb_helpers
 import griddler
 import polars as pl
 import yaml
@@ -248,6 +249,29 @@ class Experiment:
 
             self.create_pool = experimental_config["azb"]["create_pool"]
 
+            # Read the Azure Batch configuration from the config file relevant for Storage
+            az_config = azb_helpers.read_config(
+                experimental_config["azb"]["azb_config"]["config_path"]
+            )
+            self.storage_config = {"Storage": az_config["Storage"]}
+
+            # Newly loaded experiments from config have access to a config.toml pathed to "azb_config"
+            (
+                self.client,
+                self.blob_container_name,
+                self.job_prefix,
+            ) = utils.initialize_azure_client(
+                self.azb_config_path,
+                self.super_experiment_name,
+                self.create_pool,
+            )
+            # The credential is stored separately for read privileges in compressed experiments
+            self.cred = self.client.cred
+        else:
+            self.cred = None
+            self.storage_config = None
+            self.blob_container_name = None
+
         if self.tolerance_dict is None or self.target_data is None:
             warnings.warn(
                 """Target data and/or tolerance dict are currently specified as None.
@@ -305,6 +329,9 @@ class Experiment:
             "tolerance_dict": self.tolerance_dict,
             "priors": self.priors,
             "perturbation_kernel_dict": self.perturbation_kernel_dict,
+            "cred": self.cred,
+            "storage_config": self.storage_config,
+            "blob_container_name": self.blob_container_name,
         }
 
         # Save the data to a compressed pickle file
@@ -363,6 +390,9 @@ class Experiment:
             if "perturbation_kernel_dict" in data
             else None
         )
+        self.cred = (data["cred"],)
+        self.storage_config = (data["storage_config"],)
+        self.blob_container_name = data["blob_container_name"]
 
     def delete_experiment(
         self,
@@ -491,6 +521,15 @@ class Experiment:
             )
         return self.simulation_bundles[step_id]
 
+    def parquet_from_path(self, path: str) -> pl.DataFrame:
+        if self.azure_batch:
+            df = utils.read_parquet_blob(
+                self.blob_container_name, path, self.storage_config, self.cred
+            )
+        else:
+            df = pl.scan_parquet(path).collect()
+        return df
+
     def read_parquet_distances_to_current_step(
         self, input_dir: str, write_results: bool = False
     ):
@@ -498,13 +537,8 @@ class Experiment:
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
         """
-        # Scan the hive partition parquet file and collect into a dataframe
-        # if self.azure_batch:
-        #     distances = utils.spark_parquet_to_polars(
-        #         f"{input_dir}/distances/", "simulation"
-        #     )
-        # else:
-        distances = pl.scan_parquet(f"{input_dir}/distances/").collect()
+
+        distances = self.parquet_from_path(f"{input_dir}/distances/")
 
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")

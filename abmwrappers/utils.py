@@ -6,6 +6,7 @@ import subprocess
 import warnings
 from typing import Tuple
 
+import cfa_azure.helpers as azb_helpers
 import numpy as np
 import polars as pl
 import pyarrow as pa
@@ -471,6 +472,34 @@ def generate_job_name(job_prefix, length_input=64):
 
 def get_truncated_normal(mean, sd, low=0, upp=1):
     return truncnorm((low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
+
+
+def read_parquet_blob(
+    container_name: str, blob_data_path: str, azb_config: dict, cred: object
+) -> pl.DataFrame:
+    """
+    Read a parquet file from an Azure Blob Storage container and return it as a Polars DataFrame.
+    Modified from cdcent/cfa-rt-postprocessing/plotting internal functions.
+    Parameters:
+        azure_client (AzureClient): An instance of AzureClient to interact with Azure Blob Storage.
+        container_name (str): The name of the Azure Blob Storage container.
+        blob_data_path (str): The path to the parquet file within the container.
+    Returns:
+        pl.DataFrame: A Polars DataFrame containing the data
+    """
+    # Obtain container client from BlobServiceClient
+    blob_service_client = azb_helpers.get_blob_service_client(azb_config, cred)
+    c_client = blob_service_client.get_container_client(
+        container=container_name
+    )
+    # Read parquet file
+    return (
+        pl.read_parquet(
+            c_client.get_blob_client(blob_data_path).download_blob().readall()
+        )
+        # Convert any Categorical columns to Strings
+        .cast({pl.Categorical: pl.String})
+    )
 
 
 def initialize_azure_client(
