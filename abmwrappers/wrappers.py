@@ -186,6 +186,26 @@ def products_from_inputs_index(
         for file in os.listdir(simulation_output_path):
             os.remove(os.path.join(simulation_output_path, file))
 
+def create_simulation_data(
+    experiment: Experiment,
+    data_processing_fn: Callable,
+    products: list = None,
+):
+    if products is None:
+        products = ["simulations"]
+    simbundle = experiment.initialize_simbundle()
+
+    # Run the simulation
+    for index in simbundle.inputs["simulation"]:
+        products_from_inputs_index(
+            index,
+            experiment=experiment,
+            data_processing_fn=data_processing_fn,
+            products=["simulations"],
+        )
+    parquet_path = os.path.join(experiment.data_path, "simulations")
+    simulation_data_frame = experiment.parquet_from_path(parquet_path)
+    return(simulation_data_frame)
 
 def abcsmc_update_compressed_experiment(
     experiment_file: str,
