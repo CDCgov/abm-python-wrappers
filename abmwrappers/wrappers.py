@@ -502,14 +502,7 @@ def split_scenarios_into_subexperiments(
         config["local_path"]["default_params_file"] = new_params_file
         with open(new_config, "w") as f:
             yaml.dump(config, f)
-
-        # Create the experiment object
-        subexperiment = Experiment(
-            experiments_directory=experiment.directory,
-            config_file=new_config,
-        )
-
-        subexperiment.initialize_simbundle()
+            
         index += 1
 
     # Delete empty data directory
