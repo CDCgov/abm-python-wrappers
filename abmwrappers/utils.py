@@ -9,7 +9,6 @@ from typing import Tuple
 import cfa_azure.helpers as azb_helpers
 import numpy as np
 import polars as pl
-import pyarrow as pa
 import yaml
 from cfa_azure.clients import AzureClient
 

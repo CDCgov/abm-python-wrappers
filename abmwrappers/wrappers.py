@@ -186,6 +186,7 @@ def products_from_inputs_index(
         for file in os.listdir(simulation_output_path):
             os.remove(os.path.join(simulation_output_path, file))
 
+
 def create_simulation_data(
     experiment: Experiment,
     data_processing_fn: Callable,
@@ -205,7 +206,8 @@ def create_simulation_data(
         )
     parquet_path = os.path.join(experiment.data_path, "simulations")
     simulation_data_frame = experiment.parquet_from_path(parquet_path)
-    return(simulation_data_frame)
+    return simulation_data_frame
+
 
 def abcsmc_update_compressed_experiment(
     experiment_file: str,
@@ -277,7 +279,7 @@ def abcsmc_experiment_runner(
         if os.path.exists(experiment_file):
             user_input = (
                 input(
-                    f"Experiment compressed history already exists. Overwrite experiment? (Y/N): "
+                    "Experiment compressed history already exists. Overwrite experiment? (Y/N): "
                 )
                 .strip()
                 .upper()
@@ -381,7 +383,6 @@ def abcsmc_experiment_runner(
             else:
                 products = ["distances"]
 
-            sim_cmds = []
             for simulation_number in range(experiment.n_simulations):
                 simulation_index = (
                     simulation_number + step * experiment.n_simulations
@@ -509,12 +510,13 @@ def split_scenarios_into_subexperiments(
     os.rmdir(os.path.join(experiment.data_path, "input"))
     os.rmdir(experiment.data_path)
 
+
 def write_scenario_products_to_data(
-        scenario: str,
-        scenario_experiment: Experiment,
-        experiment_data_path: str,
-        products: list = None,
-        clean: bool = False,
+    scenario: str,
+    scenario_experiment: Experiment,
+    experiment_data_path: str,
+    products: list = None,
+    clean: bool = False,
 ):
     if products is None:
         products = ["simulations"]

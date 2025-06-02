@@ -1,6 +1,6 @@
 # Experiment Class Documentation
 
-The `Experiment` class is responsible for initializing, managing, and running experiments. It 
+The `Experiment` class is responsible for initializing, managing, and running experiments. It
 organizes `SimulationBundle`s, stores data in a structured format, and provides methods for lossy
 compression, restoration, and deletion of experiments.
 
@@ -9,17 +9,17 @@ compression, restoration, and deletion of experiments.
 ## Class: `Experiment`
 
 ### Description
-The `Experiment` class manages data and primarily reads a config file providing information on 
-experiment parameters. The goal of the package is to be able to call specific experiments through 
-the config exclusively, either running scenarios, simulate random draws from particular parameter 
-sets, or conduct ABC Sequential Monte Carlo experiments. 
+The `Experiment` class manages data and primarily reads a config file providing information on
+experiment parameters. The goal of the package is to be able to call specific experiments through
+the config exclusively, either running scenarios, simulate random draws from particular parameter
+sets, or conduct ABC Sequential Monte Carlo experiments.
 
 ---
 
 ### Constructor: `__init__`
 The `Experiment` can be initialized through either an "experiments" directory and a config file or
-by specifying a compressed experiment "image file". The former is most useful for running local 
-experiments and initializing new simulation draws while the latter is most useful for operating on 
+by specifying a compressed experiment "image file". The former is most useful for running local
+experiments and initializing new simulation draws while the latter is most useful for operating on
 Azure and creating save points during the experiment run.
 
 #### Parameters:
@@ -38,7 +38,7 @@ Azure and creating save points during the experiment run.
 ### Method: `load_config_params`
 
 #### Description:
-Loads parameters from the experimental configuration file. Establishes experimental components, 
+Loads parameters from the experimental configuration file. Establishes experimental components,
 paths, and handles Azure Batch configuration. Called automatically on initialization.
 
 #### Key Attributes Set:
@@ -68,7 +68,7 @@ paths, and handles Azure Batch configuration. Called automatically on initializa
 ### Method: `compress_and_save`
 
 #### Description:
-Performs lossy compression to create a reproducible savepoint of the experiment. Stores all 
+Performs lossy compression to create a reproducible savepoint of the experiment. Stores all
 essential information except simulation bundle results in a compressed pickle file.
 
 #### Parameters:
@@ -89,7 +89,7 @@ Restores an experiment from a compressed pickle file.
 ### Method: `delete_experiment`
 
 #### Description:
-Deletes files or folders within a given experiment directory, optionally filtering by prefix or 
+Deletes files or folders within a given experiment directory, optionally filtering by prefix or
 file type.
 
 #### Parameters:
@@ -101,7 +101,7 @@ file type.
 ### Method: `initialize_simbundle`
 
 #### Description:
-Initializes the first simulation bundle for the experiment. This is the first step of ABC SMC, a 
+Initializes the first simulation bundle for the experiment. This is the first step of ABC SMC, a
 single scenario, or all the simualtions from a single parameters set provided.
 
 #### Parameters:

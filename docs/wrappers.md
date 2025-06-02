@@ -158,7 +158,7 @@ This function accepts a path to a `pygriddler@v0.3` scenario JSON file and write
 - `seed_key` (`str`, optional): name of the variable used to store random seeds for each simulation.
 
 #### Behavior
-The function first asks the user, if a data directory for the overall experiment exists, if they would like to proceed. Then the simulation inputs are determined by the pygriddler input file. New sub-experiment config files for each scenario are then created, alongside the base input file for each simulation, into new input folders for each scenario. 
+The function first asks the user, if a data directory for the overall experiment exists, if they would like to proceed. Then the simulation inputs are determined by the pygriddler input file. New sub-experiment config files for each scenario are then created, alongside the base input file for each simulation, into new input folders for each scenario.
 
 
 ## Dependencies
