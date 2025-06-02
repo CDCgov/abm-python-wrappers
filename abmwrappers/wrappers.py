@@ -201,7 +201,7 @@ def create_simulation_data(
             index,
             experiment=experiment,
             data_processing_fn=data_processing_fn,
-            products=["simulations"],
+            products=products,
         )
     parquet_path = os.path.join(experiment.data_path, "simulations")
     simulation_data_frame = experiment.parquet_from_path(parquet_path)
@@ -502,9 +502,35 @@ def split_scenarios_into_subexperiments(
         config["local_path"]["default_params_file"] = new_params_file
         with open(new_config, "w") as f:
             yaml.dump(config, f)
-            
+
         index += 1
 
     # Delete empty data directory
     os.rmdir(os.path.join(experiment.data_path, "input"))
     os.rmdir(experiment.data_path)
+
+def write_scenario_products_to_data(
+        scenario: str,
+        scenario_experiment: Experiment,
+        experiment_data_path: str,
+        products: list = None,
+        clean: bool = False,
+):
+    if products is None:
+        products = ["simulations"]
+    for product in products:
+        old_parquet_path = os.path.join(scenario_experiment.data_path, product)
+        new_parquet_path = os.path.join(
+            experiment_data_path, "scenarios", scenario
+        )
+
+        os.makedirs(new_parquet_path, exist_ok=True)
+        simulation_data_frame = scenario_experiment.parquet_from_path(
+            old_parquet_path
+        )
+        simulation_data_frame.write_parquet(
+            os.path.join(new_parquet_path, "data.parquet")
+        )
+
+        if clean:
+            utils.remove_directory_tree(old_parquet_path)
