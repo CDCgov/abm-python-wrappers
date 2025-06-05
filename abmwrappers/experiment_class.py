@@ -772,7 +772,7 @@ class Experiment:
             newpars, _summary = utils.combine_params_dicts(
                 baseline_dict=baseline_params,
                 new_dict=par,
-                scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                scenario_key=scenario_key,
                 overwrite_unnested=True,
                 unflatten=unflatten,
             )
@@ -783,7 +783,7 @@ class Experiment:
                     newpars, _summary = utils.combine_params_dicts(
                         baseline_dict=newpars,
                         new_dict=changed_seed,
-                        scenario_key="cfa_ixa_ebola_response_2025.Parameters",
+                        scenario_key=scenario_key,
                         overwrite_unnested=True,
                         unflatten=unflatten,
                     )
