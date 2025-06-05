@@ -339,7 +339,7 @@ def abcsmc_experiment_runner(
                 products = ["distances"]
 
             for simulation_index in range(experiment.n_simulations):
-                task_i_cmd = f"poetry python run /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
+                task_i_cmd = f"poetry run python /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
                 task_i_cmd += " ".join(products)
 
                 sim_task_id = client.add_task(
@@ -351,7 +351,7 @@ def abcsmc_experiment_runner(
                     tasks_id_range.append(sim_task_id)
 
             task_range = tuple(tasks_id_range)
-            gather_task_cmd = f"poetry python run /{gather_script} -f /{blob_experiment_path} -i /{blob_data_path}"
+            gather_task_cmd = f"poetry run python /{gather_script} -f /{blob_experiment_path} -i /{blob_data_path}"
 
             gather_task_id = client.add_task(
                 job_id=job_name,
