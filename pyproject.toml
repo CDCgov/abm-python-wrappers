@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "abmwrappers"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Chris Valleau, William Koval"]
 readme = "README.md"

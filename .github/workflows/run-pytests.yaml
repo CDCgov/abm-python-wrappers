@@ -27,7 +27,7 @@ jobs:
 
       - name: Install global dependencies
         run: |
-          pip install poetry
+          pipx install poetry
           pip install pytest
 
       - name: Run tests
