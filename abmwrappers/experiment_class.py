@@ -390,8 +390,8 @@ class Experiment:
             if "perturbation_kernel_dict" in data
             else None
         )
-        self.cred = (data["cred"],)
-        self.storage_config = (data["storage_config"],)
+        self.cred = data["cred"]
+        self.storage_config = data["storage_config"]
         self.blob_container_name = data["blob_container_name"]
 
     def delete_experiment(
