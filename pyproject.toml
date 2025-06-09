@@ -5,16 +5,12 @@ description = ""
 authors = ["Chris Valleau, William Koval"]
 readme = "README.md"
 
-[tool.pytest.ini_options]
-pythonpath = [
-    "."
-]
-
 [tool.poetry.dependencies]
 python = "^3.10"
 PyYAML = "^6.0.1"
 pre-commit = "^3.7.1"
 scipy = "^1.14.0"
+pytest = "^8.3.4"
 sobol-seq = "^0.2.0"
 cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git", tag = "v1.5.8"}
 abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
