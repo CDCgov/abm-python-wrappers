@@ -14,8 +14,10 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Install poetry
-      run: pipx install poetry
+    - name: Install poetry and pytest
+      run: |
+        pipx install poetry
+        pip install pytest
 
     - name: Set up Python
       uses: actions/setup-python@v5
