@@ -34,5 +34,5 @@ jobs:
       - name: Run tests
         run: |
           poetry install
-          poetry shell
+          eval $(poetry env activate)
           poetry run pytest -v
