@@ -1,9 +1,9 @@
 name: pytest run for wrappers
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
-  workflow_dispatch:
 
 jobs:
   install_and_test:

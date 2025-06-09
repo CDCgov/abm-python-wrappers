@@ -6,7 +6,7 @@ import subprocess
 import warnings
 from typing import Tuple
 
-import cfa_azure.helpers as azb_helpers
+import cfa_azure.blob_helpers as blob_helpers
 import numpy as np
 import polars as pl
 import yaml
@@ -487,7 +487,7 @@ def read_parquet_blob(
         pl.DataFrame: A Polars DataFrame containing the data
     """
     # Obtain container client from BlobServiceClient
-    blob_service_client = azb_helpers.get_blob_service_client(azb_config, cred)
+    blob_service_client = blob_helpers.get_blob_service_client(azb_config, cred)
     c_client = blob_service_client.get_container_client(
         container=container_name
     )
