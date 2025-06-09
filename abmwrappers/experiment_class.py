@@ -128,8 +128,8 @@ class Experiment:
                 self.directory != specified_experiment_path
                 and self.directory != self.experiments_path
             ):
-                raise ValueError(
-                    f"Config file directory {self.directory} does not match the experiment path {specified_experiment_path} specified in file and isn't at expeirments folder root {self.experiments_path}."
+                warnings.warn(
+                    f"Config file directory {self.directory} does not match the experiment path {specified_experiment_path} specified in file and isn't at experiments folder root {self.experiments_path}."
                 )
 
             if self.directory == self.experiments_path:
