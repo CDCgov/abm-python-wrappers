@@ -474,7 +474,11 @@ def get_truncated_normal(mean, sd, low=0, upp=1):
 
 
 def read_parquet_blob(
-    container_name: str, blob_data_path: str, azb_config: dict, cred: object
+    container_name: str,
+    blob_data_path: str,
+    azb_config: dict,
+    cred: object,
+    clean: bool = True,
 ) -> pl.DataFrame:
     """
     Read a parquet file from an Azure Blob Storage container and return it as a Polars DataFrame.
@@ -492,16 +496,17 @@ def read_parquet_blob(
     )
 
     local_path = f"/{blob_data_path}"
-    os.mkdir(local_path)
+    os.makedirs(local_path)
     blob_helpers.download_directory(
-        container_name=container_name, 
-        src_path=blob_data_path, 
-        dest_path=local_path, 
-        blob_service_client=blob_service_client
-        )
+        container_name=container_name,
+        src_path=blob_data_path,
+        dest_path=local_path,
+        blob_service_client=blob_service_client,
+    )
     df = pl.read_parquet(local_path)
-    remove_directory_tree(local_path)
-    return(df)
+    if clean:
+        remove_directory_tree(local_path)
+    return df
 
     # c_client = blob_service_client.get_container_client(
     #     container=container_name
