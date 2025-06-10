@@ -509,9 +509,7 @@ class Experiment:
     def step_from_index(self, simulation_index: int) -> int:
         return int(simulation_index / self.n_simulations)
 
-    def bundle_from_index(
-        self, simulation_index: int
-    ) -> SimulationBundle:
+    def bundle_from_index(self, simulation_index: int) -> SimulationBundle:
         step_id = self.step_from_index(simulation_index)
         if step_id not in self.simulation_bundles:
             raise ValueError(
@@ -533,9 +531,7 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
-    def read_distances(
-        self, input_dir: str
-    ):
+    def read_distances(self, input_dir: str):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
