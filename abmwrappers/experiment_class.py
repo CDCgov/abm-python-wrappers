@@ -506,10 +506,13 @@ class Experiment:
 
         return sim_bundle
 
+    def step_id_from_simulation_index(self, simulation_index: int) -> int:
+        return int(simulation_index / self.n_simulations)
+
     def get_bundle_from_simulation_index(
         self, simulation_index: int
     ) -> SimulationBundle:
-        step_id = int(simulation_index / self.n_simulations)
+        step_id = self.step_id_from_simulation_index(simulation_index)
         if step_id not in self.simulation_bundles:
             raise ValueError(
                 f"Simulation bundle for step {step_id} not found."
@@ -550,7 +553,8 @@ class Experiment:
         self.simulation_bundles[self.current_step].distances = {}
 
         for k, v in zip(distances["simulation"], distances["distance"]):
-            self.simulation_bundles[self.current_step].distances[k] = v
+            if self.step_id_from_simulation_index(k) == self.current_step:
+                self.simulation_bundles[self.current_step].distances[k] = v
 
     # --------------------------------------------
     # Resampling between experiment steps
