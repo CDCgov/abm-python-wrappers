@@ -15,7 +15,7 @@ def test_compress_and_restore():
     init_bundle = experiment.initialize_simbundle()
     output_file = "tests/output/experiment_history.pkl"
     os.makedirs("tests/output", exist_ok=True)
-    experiment.compress_and_save(output_file=output_file)
+    experiment.save(output_file=output_file)
 
     restored_experiment = Experiment(img_file=output_file)
 

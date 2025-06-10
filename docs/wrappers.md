@@ -6,7 +6,7 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ## Functions
 
-### `products_from_inputs_index`
+### `products_from_index`
 
 #### Description
 Processes simulation data and writes results to Parquet files. Handles distances, simulations, and intermediate cleaning.
@@ -66,7 +66,7 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ## Functions
 
-### `products_from_inputs_index`
+### `products_from_index`
 
 #### Description
 Processes simulation data and writes results to Parquet files. Handles distances, simulations, and intermediate cleaning.
@@ -108,10 +108,10 @@ Updates a compressed experiment file with distance data stored as a Parquet Hive
 - `None`
 
 ---
-### `abcsmc_experiment_runner`
+### `run_abcsmc`
 
 #### Description
-The `abcsmc_experiment_runner` function orchestrates the execution of Approximate Bayesian Computation Sequential Monte Carlo (ABC SMC) experiments. It supports both local and Azure Batch-based execution workflows, depending on the configuration of the `Experiment` object passed to it. The function handles initialization of simulation bundles, running simulations, processing results, and managing experiment history files.
+The `run_abcsmc` function orchestrates the execution of Approximate Bayesian Computation Sequential Monte Carlo (ABC SMC) experiments. It supports both local and Azure Batch-based execution workflows, depending on the configuration of the `Experiment` object passed to it. The function handles initialization of simulation bundles, running simulations, processing results, and managing experiment history files.
 
 ---
 
@@ -141,12 +141,12 @@ Running the function with an experiment that has `azure_batch` stored as `true`,
 
 Running the function with an experiment that has `azure_batch` stored as `false`
 - If `local_compress` is `True`, the function processes simulation bundles for the current step without compressing the experiment.
-- It iterates through the simulation indices in the current bundle and processes simulation data using the `products_from_inputs_index` function.
+- It iterates through the simulation indices in the current bundle and processes simulation data using the `products_from_index` function.
 - After processing all simulations for the step, the function resamples the experiment for the next ABC SMC step using the provided perturbation kernels.
 
 ---
 
-### `split_scenarios_into_subexperiments`
+### `create_scenario_subexperiments`
 
 #### Description
 This function accepts a path to a `pygriddler@v0.3` scenario JSON file and writes the inputs as independent subexperiments in a `scenarios` folder. The resulting subexperiments therefore have an experiments directory of the `experiment.sub_experiment_name`, a super experiment name `scenarios` and a subexperiment name `scenario=i`, where `i` is an iteratio over the length of the scenario count.

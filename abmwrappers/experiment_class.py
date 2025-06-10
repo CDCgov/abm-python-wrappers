@@ -47,8 +47,8 @@ class Experiment:
 
         # If an image .pkl file containing experiment history is supplied, read from that
         if img_file is not None:
-            self.restore_experiment(img_file)
-        # Otherwise, instantiate a new experiment with load_config_params
+            self.restore(img_file)
+        # Otherwise, instantiate a new experiment with load_config
         else:
             self.config_file = config_file
             self.experiments_path = experiments_directory
@@ -71,7 +71,7 @@ class Experiment:
             self.perturbation_kernel_dict = perturbation_kernel_dict
 
             if os.path.exists(config_file):
-                self.load_config_params()
+                self.load_config()
             else:
                 # Check if the config file exists in the experiments directory
                 tmp = os.path.join(experiments_directory, config_file)
@@ -89,13 +89,13 @@ class Experiment:
                         f"Config file {config_file} does not exist."
                     )
 
-            self.load_config_params()
+            self.load_config()
 
     # --------------------------------------------
     # Loading and storing the experiment
     # --------------------------------------------
 
-    def load_config_params(self):
+    def load_config(self):
         """
         load the parameters from the experimental file
         establishes the experimental components, paths, and handles tha azure configuration file
@@ -280,7 +280,7 @@ class Experiment:
                 UserWarning,
             )
 
-    def compress_and_save(self, output_file: str):
+    def save(self, output_file: str):
         """
         Lossy compression to save a reproducible savepoint
         Stores all information except for simulation bundle results to compressed pickle file
@@ -338,7 +338,7 @@ class Experiment:
         with open(output_file, "wb") as f:
             pickle.dump(data, f)
 
-    def restore_experiment(self, input_file: str):
+    def restore(self, input_file: str):
         """
         Load the experiment from a compressed pickle file
         :param input_file: The path to the compressed pickle file
@@ -394,7 +394,7 @@ class Experiment:
         self.storage_config = data["storage_config"]
         self.blob_container_name = data["blob_container_name"]
 
-    def delete_experiment(
+    def delete(
         self,
         prefix: str = None,
         file_type: str = None,
@@ -506,13 +506,13 @@ class Experiment:
 
         return sim_bundle
 
-    def step_id_from_simulation_index(self, simulation_index: int) -> int:
+    def step_from_index(self, simulation_index: int) -> int:
         return int(simulation_index / self.n_simulations)
 
-    def get_bundle_from_simulation_index(
+    def bundle_from_index(
         self, simulation_index: int
     ) -> SimulationBundle:
-        step_id = self.step_id_from_simulation_index(simulation_index)
+        step_id = self.step_from_index(simulation_index)
         if step_id not in self.simulation_bundles:
             raise ValueError(
                 f"Simulation bundle for step {step_id} not found."
@@ -533,8 +533,8 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
-    def read_parquet_distances_to_current_step(
-        self, input_dir: str, write_results: bool = False
+    def read_distances(
+        self, input_dir: str
     ):
         """
         Read distances and simulation results into the simulation bundle history
@@ -553,12 +553,12 @@ class Experiment:
         self.simulation_bundles[self.current_step].distances = {}
 
         for k, v in zip(distances["simulation"], distances["distance"]):
-            if self.step_id_from_simulation_index(k) == self.current_step:
+            if self.step_from_index(k) == self.current_step:
                 self.simulation_bundles[self.current_step].distances[k] = v
 
     # --------------------------------------------
     # Resampling between experiment steps
-    def resample_for_next_abc_step(
+    def resample(
         self,
         perturbation_kernel_dict: dict = None,
         prior_distribution_dict: dict = None,
@@ -644,7 +644,7 @@ class Experiment:
         self.simulation_bundles[new_bundle._step_number] = new_bundle
         self.current_step += 1
 
-    def write_simulation_inputs_to_file(
+    def write_inputs(
         self,
         simulation_index: int,
         write_inputs_cmd: str = None,
@@ -662,7 +662,7 @@ class Experiment:
         Use a tmp space for files that are intermediate products
         """
 
-        sim_bundle = self.get_bundle_from_simulation_index(simulation_index)
+        sim_bundle = self.bundle_from_index(simulation_index)
 
         input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
 
@@ -716,7 +716,7 @@ class Experiment:
             subprocess.run(write_inputs_cmd.split(), check=True)
             return input_dir
 
-    def write_simulation_inputs_from_griddle(
+    def write_inputs_from_griddle(
         self,
         input_griddle: str = None,
         scenario_key: str = None,

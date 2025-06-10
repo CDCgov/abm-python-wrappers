@@ -35,7 +35,7 @@ Azure and creating save points during the experiment run.
 
 ---
 
-### Method: `load_config_params`
+### Method: `load_config`
 
 #### Description:
 Loads parameters from the experimental configuration file. Establishes experimental components,
@@ -65,7 +65,7 @@ paths, and handles Azure Batch configuration. Called automatically on initializa
 
 ---
 
-### Method: `compress_and_save`
+### Method: `save`
 
 #### Description:
 Performs lossy compression to create a reproducible savepoint of the experiment. Stores all
@@ -76,7 +76,7 @@ essential information except simulation bundle results in a compressed pickle fi
 
 ---
 
-### Method: `restore_experiment`
+### Method: `restore`
 
 #### Description:
 Restores an experiment from a compressed pickle file.
@@ -86,7 +86,7 @@ Restores an experiment from a compressed pickle file.
 
 ---
 
-### Method: `delete_experiment`
+### Method: `delete`
 
 #### Description:
 Deletes files or folders within a given experiment directory, optionally filtering by prefix or
@@ -116,7 +116,7 @@ single scenario, or all the simualtions from a single parameters set provided.
 
 ---
 
-### Method: `get_bundle_from_simulation_index`
+### Method: `bundle_from_index`
 
 #### Description:
 Retrieves a simulation bundle based on its index.

@@ -13,7 +13,7 @@ def main(
     products_output_dir: str = None,
 ):
     experiment = Experiment(img_file=img_file)
-    wrappers.products_from_inputs_index(
+    wrappers.products_from_index(
         simulation_index=simulation_index,
         experiment=experiment,
         distance_fn=experiment.distance_fn,

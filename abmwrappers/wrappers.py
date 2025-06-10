@@ -99,7 +99,7 @@ def download_outputs(
 # --------------------------
 
 
-def products_from_inputs_index(
+def products_from_index(
     simulation_index: int,
     experiment: Experiment,
     distance_fn: Callable = None,
@@ -118,7 +118,7 @@ def products_from_inputs_index(
             "Data processing function must be provided if not previously declared in Experiment parameters."
         )
 
-    input_file_path = experiment.write_simulation_inputs_to_file(
+    input_file_path = experiment.write_inputs(
         simulation_index,
         scenario_key=scenario_key,
     )
@@ -138,7 +138,7 @@ def products_from_inputs_index(
 
     utils.run_model_command_line(cmd, model_type=experiment.model_type)
 
-    sim_bundle = experiment.get_bundle_from_simulation_index(simulation_index)
+    sim_bundle = experiment.bundle_from_index(simulation_index)
 
     sim_bundle.results = {
         simulation_index: data_processing_fn(simulation_output_path)
@@ -191,14 +191,14 @@ def create_simulation_data(
     experiment: Experiment,
     data_processing_fn: Callable,
     products: list = None,
-):
+) -> pl.DataFrame:
     if products is None:
         products = ["simulations"]
     simbundle = experiment.initialize_simbundle()
 
     # Run the simulation
     for index in simbundle.inputs["simulation"]:
-        products_from_inputs_index(
+        products_from_index(
             index,
             experiment=experiment,
             data_processing_fn=data_processing_fn,
@@ -229,14 +229,14 @@ def abcsmc_update_compressed_experiment(
     experiment = Experiment(img_file=experiment_file)
 
     # Load the distances
-    experiment.read_parquet_distances_to_current_step(input_dir=products_path)
-    experiment.resample_for_next_abc_step()
+    experiment.read_distances(input_dir=products_path)
+    experiment.resample()
 
     # Save the updated experiment
-    experiment.compress_and_save(experiment_file)
+    experiment.save(experiment_file)
 
 
-def abcsmc_experiment_runner(
+def run_abcsmc(
     experiment: Experiment,
     data_processing_fn: Callable = None,
     distance_fn: Callable = None,
@@ -295,7 +295,7 @@ def abcsmc_experiment_runner(
                 f"/app/{os.path.basename(experiment.exe_file)}"
             )
 
-        experiment.compress_and_save(experiment_file)
+        experiment.save(experiment_file)
         files_to_upload.append(experiment_file)
 
         # Initialize Azure client
@@ -376,7 +376,7 @@ def abcsmc_experiment_runner(
         experiment_path = os.path.join(
             experiment.data_path, "experiment_history.pkl"
         )
-        experiment.compress_and_save(experiment_path)
+        experiment.save(experiment_path)
         for step, tolerance in experiment.tolerance_dict.items():
             print(
                 f"Running step {step} of {len(experiment.tolerance_dict)} with tolerance {tolerance}"
@@ -421,7 +421,7 @@ def abcsmc_experiment_runner(
                 products = ["distances"]
 
             for simulation_index in current_bundle.inputs["simulation"]:
-                products_from_inputs_index(
+                products_from_index(
                     simulation_index,
                     experiment=experiment,
                     data_processing_fn=data_processing_fn,
@@ -430,10 +430,10 @@ def abcsmc_experiment_runner(
                     scenario_key=scenario_key,
                 )
 
-            experiment.resample_for_next_abc_step(perturbation_kernels)
+            experiment.resample(perturbation_kernels)
 
 
-def split_scenarios_into_subexperiments(
+def create_scenario_subexperiments(
     experiment: Experiment,
     griddle_path: str = None,
     scenario_key: str = None,
@@ -467,7 +467,7 @@ def split_scenarios_into_subexperiments(
         utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
     # Write all inputs
-    experiment.write_simulation_inputs_from_griddle(
+    experiment.write_inputs_from_griddle(
         griddle_path, scenario_key=scenario_key, seed_key=seed_key
     )
 
@@ -515,7 +515,7 @@ def split_scenarios_into_subexperiments(
     os.rmdir(experiment.data_path)
 
 
-def write_scenario_products_to_data(
+def write_scenario_products(
     scenario: str,
     scenario_experiment: Experiment,
     experiment_data_path: str,
