@@ -35,7 +35,7 @@ Creates simulation data by running simulations and processing results. Writes si
 
 ---
 
-### `abcsmc_update_compressed_experiment`
+### `update_abcsmc_img`
 
 #### Description
 Updates a compressed experiment file with distance data stored as a Parquet Hive partition. Used during the gather step of ABC SMC workflows.
@@ -95,7 +95,7 @@ Creates simulation data by running simulations and processing results. Writes si
 
 ---
 
-### `abcsmc_update_compressed_experiment`
+### `update_abcsmc_img`
 
 #### Description
 Updates a compressed experiment file with distance data stored as a Parquet Hive partition. Used during the gather step of ABC SMC workflows.

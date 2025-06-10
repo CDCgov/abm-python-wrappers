@@ -7,7 +7,7 @@ def gather_results(
     img_file: str,
     products_path: str,
 ):
-    wrappers.abcsmc_update_compressed_experiment(img_file, products_path)
+    wrappers.update_abcsmc_img(img_file, products_path)
 
 
 parser = argparse.ArgumentParser()

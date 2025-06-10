@@ -209,7 +209,7 @@ def create_simulation_data(
     return simulation_data_frame
 
 
-def abcsmc_update_compressed_experiment(
+def update_abcsmc_img(
     experiment_file: str,
     products_path: str,
 ):
@@ -397,9 +397,7 @@ def run_abcsmc(
                 subprocess.run(task_i_cmd.split())
 
             # Gathering from compressed experiment file
-            abcsmc_update_compressed_experiment(
-                experiment_path, experiment.data_path
-            )
+            update_abcsmc_img(experiment_path, experiment.data_path)
 
     else:
         for step, tolerance in experiment.tolerance_dict.items():
