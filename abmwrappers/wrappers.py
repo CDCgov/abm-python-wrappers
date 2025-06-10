@@ -351,7 +351,8 @@ def abcsmc_experiment_runner(
                     tasks_id_range.append(sim_task_id)
 
             task_range = tuple(tasks_id_range)
-            gather_task_cmd = f"poetry run python /{gather_script} -f /{blob_experiment_path} -i /{blob_data_path}"
+            gather_task_cmd = f"poetry run python /{gather_script} -f /{blob_experiment_path} -i {experiment.sub_experiment_name}/data"
+            print(gather_task_cmd)
 
             gather_task_id = client.add_task(
                 job_id=job_name,

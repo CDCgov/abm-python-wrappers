@@ -493,6 +493,7 @@ def read_parquet_blob(
     c_client = blob_service_client.get_container_client(
         container=container_name
     )
+    print(blob_data_path)
     # Read parquet file
     return (
         pl.read_parquet(
