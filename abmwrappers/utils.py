@@ -490,18 +490,31 @@ def read_parquet_blob(
     blob_service_client = blob_helpers.get_blob_service_client(
         azb_config, cred
     )
-    c_client = blob_service_client.get_container_client(
-        container=container_name
-    )
-    print(blob_data_path)
-    # Read parquet file
-    return (
-        pl.read_parquet(
-            c_client.get_blob_client(blob_data_path).download_blob().readall()
+
+    local_path = f"/{blob_data_path}"
+    os.mkdir(local_path)
+    blob_helpers.download_directory(
+        container_name=container_name, 
+        src_path=blob_data_path, 
+        dest_path=local_path, 
+        blob_service_client=blob_service_client
         )
-        # Convert any Categorical columns to Strings
-        .cast({pl.Categorical: pl.String})
-    )
+    df = pl.read_parquet(local_path)
+    remove_directory_tree(local_path)
+    return(df)
+
+    # c_client = blob_service_client.get_container_client(
+    #     container=container_name
+    # )
+    # print(blob_data_path)
+    # # Read parquet file
+    # return (
+    #     pl.read_parquet(
+    #         c_client.download_blob(blob=blob_data_path).readall()
+    #     )
+    #     # Convert any Categorical columns to Strings
+    #     .cast({pl.Categorical: pl.String})
+    # )
 
 
 def initialize_azure_client(
