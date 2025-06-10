@@ -339,7 +339,10 @@ def abcsmc_experiment_runner(
                 products = ["distances"]
 
             for simulation_index in range(experiment.n_simulations):
-                task_i_cmd = f"poetry run python /{task_script} --index {simulation_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
+                realized_sim_index = (
+                    simulation_index + step * experiment.n_simulations
+                )
+                task_i_cmd = f"poetry run python /{task_script} --index {realized_sim_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
                 task_i_cmd += " ".join(products)
 
                 sim_task_id = client.add_task(
