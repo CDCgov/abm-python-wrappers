@@ -325,6 +325,7 @@ class Experiment:
                 }
                 for step, bundle in self.simulation_bundles.items()
             },
+            "scenario_key": self.scenario_key,
             "current_step": self.current_step,
             "tolerance_dict": self.tolerance_dict,
             "priors": self.priors,
@@ -382,6 +383,7 @@ class Experiment:
         self.replicates = data["replicates"]
         self.n_simulations = self.n_particles * self.replicates
         self.simulation_bundles = history
+        self.scenario_key = data["scenario_key"]
         self.current_step = data["current_step"]
         self.tolerance_dict = data["tolerance_dict"]
         self.priors = data["priors"]
