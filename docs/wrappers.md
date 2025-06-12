@@ -173,8 +173,37 @@ The `wrappers.py` module relies on the following libraries and modules:
 ## Example Usage
 
 ### Simulate random replicates of an input file
+In many cases, we may just want to call one parameter set many times to produce a set of simulations. In order to do so, we need to provide an `Experiment` with an initialized simulation bundle history, a base input parameter file to draw from, and a `config.yaml` relating the paths as well as number of replicates.
+
+In order to initialize simulation bundle histroy for a new experiment, we can call the `experiment.intialize_simbundle()` method, which will automatically populate a `SimulationBundle` as the zeroeth simulation set of the `Experiment`.
+
+This is performed automatically by the wrapper function `create_simulation_data`, which first checks for any simulation bundle history and either calls the current step's inputs to create simulation data or creates the first bundle and then creates the data.
+
+```python
+def read_fn(outputs_dir):
+    # Function to read in the data
+    # This is a placeholder function, implement your own logic here to provide post-processing if desired
+    output_file_path = os.path.join(outputs_dir, "person_property_count.csv")
+    if os.path.exists(output_file_path):
+        df = pl.read_csv(output_file_path)
+    else:
+        raise FileNotFoundError(f"{output_file_path} does not exist.")
+
+experiment = Experiment(
+    experiments_directory = "experiments",
+    config_file = "path/to/config.yaml"
+)
+
+simulation_data = wrappers.create_simulation_data(
+    experiment,
+    data_processing_fn=read_fn,
+)
+```
+
+Simulations will now be stored as a hive partitioned `.parquet` file and nested as raw output `.csv` files in the outputs directory, which is automatically selected from the experiment's `.data_path`. The funciton returns the simulations as a `pl.DataFrame` for convenience if we want to do further analysis within the same script.
 
 ### Scenarios
+
 
 ### ABC SMC - local
 

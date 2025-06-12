@@ -194,7 +194,12 @@ def create_simulation_data(
 ) -> pl.DataFrame:
     if products is None:
         products = ["simulations"]
-    simbundle = experiment.initialize_simbundle()
+
+    # Generate products from current step if it exists or initialize
+    if experiment.current_step is not None:
+        simbundle = experiment.simulation_bundles[experiment.current_step]
+    else:
+        simbundle = experiment.initialize_simbundle()
 
     # Run the simulation
     for index in simbundle.inputs["simulation"]:
