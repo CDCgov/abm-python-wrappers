@@ -203,9 +203,57 @@ simulation_data = wrappers.create_simulation_data(
 Simulations will now be stored as a hive partitioned `.parquet` file and nested as raw output `.csv` files in the outputs directory, which is automatically selected from the experiment's `.data_path`. The funciton returns the simulations as a `pl.DataFrame` for convenience if we want to do further analysis within the same script.
 
 ### Scenarios
+This package provides simple file management for taking one `Experiment` and splitting it into scenarios using pygriddler. For a single workflow, an `Experiment` provides the `write_inputs` function to wrtie out the relevant input files for executing ABM simulations. To handle multiple scenario worfklows, the `Experiment` class instead provides `write_inputs_from_griddle`, which requires an associated `griddle_file` in the `Experiment` config file or one to be sourced manually freom a path to a valid griddler raw input file.
 
+This experiment method is called by the wrapper `create_scenario_subexperiments`, which makes a new `scenarios` folder in the `experiment.directory` path. Each scenario has an associated experiments folder that is at the original `experiment.directory` level. There are convenient hooks in the `write_scenario_products` wrapper to extract products created in these scenario folders back up to the top-level experiment directory.
 
-### ABC SMC - local
+```python
+# Create the new Experiment and scenarios folder
+experiment = Experiment(
+    experiments_directory="experiments",
+    config_file="path/to/config.yaml",
+)
+
+wrappers.create_scenario_subexperiments(
+    experiment
+)
+
+# Iterate over config files in the new scenarios directory
+# Create simulation data and store as parquet file in each scenario folder
+scenarios_dir = os.path.join(experiment.directory, "scenarios")
+
+for scenario in os.listdir(scenarios_dir):
+    config_path = os.path.join(
+        scenarios_dir, scenario, "input", "config.yaml"
+    )
+
+    subexperiment = Experiment(
+        experiments_directory=experiment.directory,
+        config_file=config_path,
+    )
+
+    wrappers.create_simulation_data(
+        experiment=subexperiment,
+        data_processing_fn=read_fn
+    )
+    experiment.simulation_bundles.update(
+        {scenario: subexperiment.simulation_bundles[0]}
+    )
+
+    wrappers.write_scenario_products(
+        scenario=scenario,
+        scenario_experiment=subexperiment,
+        experiment_data_path=experiment.data_path,
+        clean=clean,
+    )
+experiment.save(
+    os.path.join(experiment.directory, "data", "experiment.pkl")
+)
+```
+
+Within the for loop of the above example, it would be possible to provide any post processing on the products returned by `create_simulation_data`, or call other wrappers on the `subexperiment` objects, such as `run_abcsmc`, instead of only creating simulations.
+
+We end the example script by compressing the currently stored simulation bundles of each scenario and saving them to the overall experiment, so that they can be called from the upper directory. This is not necessary, but ensures all data is in the same place.
 
 ### ABC SMC - Azure
 
