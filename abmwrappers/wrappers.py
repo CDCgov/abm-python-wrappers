@@ -264,7 +264,9 @@ def run_abcsmc(
         )
 
     if experiment.azure_batch:
-        print("Not fully implemented yet")
+        print(
+            "Not fully implemented yet - requires direct upload of gather and task steps"
+        )
 
         if experiment.client is None:
             raise ValueError(

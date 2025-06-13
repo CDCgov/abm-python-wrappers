@@ -47,22 +47,6 @@ def run_model_command_line(
         )
 
 
-# def spark_parquet_to_polars(file_path: str, col: str) -> pl.DataFrame:
-#     """
-#     Reads a Parquet file using PySpark and converts it to a Polars DataFrame.
-
-#     Args:
-#         file_path (str): The path to the Parquet file.
-#         col (str): The column name to be used for filtering.
-
-#     Returns:
-#         pl.DataFrame: A Polars DataFrame containing the filtered data.
-#     """
-#     spark = SparkSession.builder.appName("ReadParquet").getOrCreate()
-#     spark_df = spark.read.parquet(file_path, partitionColumn=col)
-#     return pl.from_arrow(pa.Table.from_batches(spark_df._collect_as_arrow()))
-
-
 def write_default_cmd(
     input_file: str,
     output_dir: str,
@@ -507,19 +491,6 @@ def read_parquet_blob(
     if clean:
         remove_directory_tree(local_path)
     return df
-
-    # c_client = blob_service_client.get_container_client(
-    #     container=container_name
-    # )
-    # print(blob_data_path)
-    # # Read parquet file
-    # return (
-    #     pl.read_parquet(
-    #         c_client.download_blob(blob=blob_data_path).readall()
-    #     )
-    #     # Convert any Categorical columns to Strings
-    #     .cast({pl.Categorical: pl.String})
-    # )
 
 
 def initialize_azure_client(
