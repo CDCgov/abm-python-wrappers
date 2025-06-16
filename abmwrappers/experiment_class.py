@@ -18,25 +18,39 @@ from abmwrappers import utils
 
 class Experiment:
     """
-    A class to intiialize an experiment given some input files
-    Organizes simulation bundles and stores data to file structure
+    Experiments are rulesets for generating and storing a dicitonary of SimulationBundles.
+    Experiments offer methods for manipulating data across bundles or storing that data in specified file structures.
     """
 
     def __init__(
         self,
-        experiments_directory: str = None,
         config_file: str = None,
+        experiments_directory: str = None,
         img_file: str = None,
-        prior_distribution_dict: dict = None,
-        perturbation_kernel_dict: dict = None,
+        verbose: bool = True,
+        **kwargs,
     ):
         """
         Initialize the experiment as either a new experiment using a config file or restore the history of a previously compressed and saved experiment
         :param config_file: The path to the config file. If this file is not specified, the experiment will be initialized with the img_file
         :param experiments_directory: The path to the experiments directory. This is where the experiment will be saved and recognized. Required for config but not img_file
         :param img_file: The path to the image file. If this file is not specified, the experiment will be initialized with the config_file
-        :param prior_distribution_dict: A dictionary of prior distributions for the simulation parameters. This is used during ABC SMC and for drawing random parameters
-            if no parameters are specified in the prior distributions
+        :param verbose: Whether top print progress statements and flag warnings for the user
+        :param kwargs: Accepts keywords in the Exeperiment class attributes to overwrite from loading or values for the parameter distribution dicts
+
+        Examples:
+        To initialize an experiment from a config file, the experiments directory and config file must be specified
+        >>> experiment = Experiment(config_file="experiments/path/to/config.yaml", experiments_directory="experiments")
+
+        To initialize from a history file, the experiments directory is already stored in the compressed data, so only img_file must be specified
+        >>> experiment = Experiment(img_file="experiment/path/to/history.pkl")
+
+        Optional arguments or overwrites fo the config can be provided as well through **kwargs in either case
+        >>> experiment = Experiment(
+                img_file="experiment/path/to/history.pkl",
+                prior_distribtuion_dict={"mean": scipy.stats.norm(0,1.0)},
+                tolerance_dict={0: 50.0, 1: 25.0, 2: 10.0},
+            )
 
         """
 
@@ -44,9 +58,17 @@ class Experiment:
             raise ValueError(
                 "No config file or image file specified. Please provide a config file."
             )
+        if config_file is not None and img_file is not None:
+            raise NotImplementedError(
+                "Cannot currently both source from config_file and restore previous data from img_file. Aborting Experiment initialization."
+            )
+
+        self.verbose = verbose
 
         # If an image .pkl file containing experiment history is supplied, read from that
         if img_file is not None:
+            if self.verbose:
+                print(f"Restoring previous experiment from {img_file}")
             self.restore(img_file)
         # Otherwise, instantiate a new experiment with load_config
         else:
@@ -54,25 +76,20 @@ class Experiment:
             self.experiments_path = experiments_directory
             self.directory = os.path.dirname(config_file)
 
+            #
             if self.directory.endswith("input") or self.directory.endswith(
                 "input/"
             ):
                 self.directory = os.path.dirname(self.directory)
 
+            # Remove relative path
             if self.directory.startswith("./"):
                 self.directory = os.path.abspath(self.directory)
 
             self.simulation_bundles = {}
             self.current_step = None
 
-            # Optional inputs for use in getters or wrappers later
-            # These can likewise be decalred to each helper function independently
-            self.priors = prior_distribution_dict
-            self.perturbation_kernel_dict = perturbation_kernel_dict
-
-            if os.path.exists(config_file):
-                self.load_config()
-            else:
+            if not os.path.exists(config_file):
                 # Check if the config file exists in the experiments directory
                 tmp = os.path.join(experiments_directory, config_file)
                 if os.path.exists(tmp):
@@ -90,6 +107,26 @@ class Experiment:
                     )
 
             self.load_config()
+
+        # Optional inputs for use in getters or wrappers later or attributes to overwrite from config
+        for k, v in kwargs.items():
+            if k in self.__dict__.keys():
+                old_v = self.__getattr__(k)
+                self.__setattr__(k, v)
+                if self.verbose:
+                    print(
+                        f"Replacing {k} current value {v} with old value {old_v}"
+                    )
+            elif k == "prior_distirbution_dict":
+                assert isinstance(v, dict)
+                self.priors = v
+            elif k == "perturbation_kernel_dict":
+                assert isinstance(v, dict)
+                self.perturbation_kernel_dict = v
+            else:
+                raise ValueError(
+                    f"Keyword {k} is not an attribute and is not in `[prior_distribution_dict, perturbation_kernel_dict]`"
+                )
 
     # --------------------------------------------
     # Loading and storing the experiment
