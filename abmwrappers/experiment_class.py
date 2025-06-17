@@ -35,7 +35,8 @@ class Experiment:
         :param config_file: The path to the config file. If this file is not specified, the experiment will be initialized with the img_file
         :param experiments_directory: The path to the experiments directory. This is where the experiment will be saved and recognized. Required for config but not img_file
         :param img_file: The path to the image file. If this file is not specified, the experiment will be initialized with the config_file
-        :param verbose: Whether top print progress statements and flag warnings for the user
+        :param verbose: Whether top print progress statements and flag warnings for the user.
+            Warnings that alter experiment behavior but will not necessarily raise an error are displayed regardless of verbose value
         :param kwargs: Accepts keywords in the Exeperiment class attributes to overwrite from loading or values for the parameter distribution dicts
 
         Examples:
@@ -487,24 +488,28 @@ class Experiment:
         Returns:
             None
         """
-
-        # List all items in the directory
-        for item in os.listdir(self.data_path):
-            # Construct full path to item
-            item_path = os.path.join(self.data_path, item)
-            # Check if item matches prefix condition if provided
-            if prefix is not None and not item.startswith(prefix):
-                continue
-            # Check if item matches file type condition if provided
-            if file_type is not None:
-                # If it's a folder or doesn't match the extension, skip it
-                if os.path.isdir(item_path) or not item.endswith(file_type):
+        if prefix is None and file_type is None:
+            utils.remove_directory_tree(self.directory)
+        else:
+            # List all items in the directory
+            for item in os.listdir(self.data_path):
+                # Construct full path to item
+                item_path = os.path.join(self.data_path, item)
+                # Check if item matches prefix condition if provided
+                if prefix is not None and not item.startswith(prefix):
                     continue
-            # Delete files or folders that meet conditions
-            if os.path.isfile(item_path) or os.path.islink(item_path):
-                os.remove(item_path)
-            elif os.path.isdir(item_path):
-                shutil.rmtree(item_path)
+                # Check if item matches file type condition if provided
+                if file_type is not None:
+                    # If it's a folder or doesn't match the extension, skip it
+                    if os.path.isdir(item_path) or not item.endswith(
+                        file_type
+                    ):
+                        continue
+                # Delete files or folders that meet conditions
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.remove(item_path)
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
 
     # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
@@ -519,13 +524,19 @@ class Experiment:
         seed_variable_name: str = "randomSeed",
     ) -> SimulationBundle:
         if len(changed_baseline_params) > 0:
-            print(
-                "Changed baseline parameters specified from config file. Updating baseline parameters and overwriting common keys."
-            )
-            self.changed_baseline_params.update(changed_baseline_params)
+            if self.verbose:
+                print(
+                    "Changed baseline parameters specified by function. Updating baseline parameters and overwriting common keys."
+                )
+                self.changed_baseline_params.update(changed_baseline_params)
 
         if scenario_key is None:
             scenario_key = self.scenario_key
+        elif self.scenario_key is not None:
+            warnings.warn(
+                f"Overwriting scenario key {self.scenario_key} with {scenario_key}"
+            )
+            self.scenario_key = scenario_key
         # Create baseline_params by updating default params
         baseline_params, _summary_string = utils.load_baseline_params(
             self.default_params_file,
@@ -639,21 +650,39 @@ class Experiment:
         First calculates the weights for each particle parameter set, equal to the normalized proprotion of accepted simulations in a particle for step 0
         Then resamples the accepted simulations from the previous step, perturbing values afterwards for each particle sampled.
         """
+        # Save priors and perturbation kernel distribution for use in experiment if not already stored and draw
+        # Priors must be consistent for the whole experiment
+        if prior_distribution_dict is not None:
+            if (
+                self.priors is not None
+                and self.priors is not prior_distribution_dict
+            ):
+                raise ValueError(
+                    "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
+                )
+            self.priors = prior_distribution_dict
+
+        # Perturbation kernels do not necessarily need to be the same across steps for resample
         if perturbation_kernel_dict is not None:
+            if (
+                self.perturbation_kernel_dict is not None
+                and self.perturbation_kernel_dict
+                is not perturbation_kernel_dict
+            ):
+                warnings.warn(
+                    "Different perturbation distribution already specified on experiment initiation. The perturbation kernel will be replaced."
+                )
             self.perturbation_kernel_dict = perturbation_kernel_dict
+
+        # Ensure that both priors and perturbation kernels are present for resample
+        if self.priors is None:
+            raise ValueError(
+                "Prior distribution not specified on experiment initiation or during resample."
+            )
         if self.perturbation_kernel_dict is None:
             raise ValueError(
                 "Perturbation kernel not specified on experiment initiation or during resample."
             )
-        if self.priors is None and prior_distribution_dict is None:
-            raise ValueError(
-                "Prior distribution not specified on experiment initiation or during resample."
-            )
-        if prior_distribution_dict is not None and self.priors is None:
-            print(
-                "Prior distribution specified during resample. Updating prior."
-            )
-            self.priors = prior_distribution_dict
 
         # Validate that the keys in perturbation kernel and prior dictionary are the same
         if self.perturbation_kernel_dict and self.priors:
@@ -717,7 +746,6 @@ class Experiment:
     def write_inputs(
         self,
         simulation_index: int,
-        write_inputs_cmd: str = None,
         scenario_key: str = None,
     ) -> str:
         """
@@ -758,33 +786,18 @@ class Experiment:
             f"simulation_{simulation_index}.{self.input_file_type}"
         )
 
-        if write_inputs_cmd is None:
-            if simulation_index % self.n_simulations == 0:
-                print(
-                    "No preprocessing step supplied to transform input parameters. Printing directly to file"
-                )
-            formatted_inputs = utils.gcm_parameters_writer(
-                params=simulation_params,
-                output_type=self.input_file_type,
-                unflatten=True,
+        if simulation_index % self.n_simulations == 0:
+            print(
+                "No preprocessing step supplied to transform input parameters. Printing directly to file"
             )
-            with open(os.path.join(input_dir, input_file_name), "w") as f:
-                f.write(formatted_inputs)
-            return os.path.join(input_dir, input_file_name)
-        else:
-            # Use the command line to write the inputs from a preprocessing script
-            # UNSTABLE
-            warnings.warn(
-                "Preprocessing step supplied to transform input parameters. UNSTABLE. Writing to base.yaml",
-                UserWarning,
-            )
-            formatted_inputs = utils.gcm_parameters_writer(
-                params=simulation_params, output_type="YAML", unflatten=False
-            )
-            with open(os.path.join(input_dir, "base.yaml"), "w") as f:
-                f.write(formatted_inputs)
-            subprocess.run(write_inputs_cmd.split(), check=True)
-            return input_dir
+        formatted_inputs = utils.gcm_parameters_writer(
+            params=simulation_params,
+            output_type=self.input_file_type,
+            unflatten=True,
+        )
+        with open(os.path.join(input_dir, input_file_name), "w") as f:
+            f.write(formatted_inputs)
+        return os.path.join(input_dir, input_file_name)
 
     def write_inputs_from_griddle(
         self,
