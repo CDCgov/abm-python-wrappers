@@ -11,8 +11,6 @@ import numpy as np
 import polars as pl
 import yaml
 from cfa_azure.clients import AzureClient
-
-# from pyspark.sql import SparkSession
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
 
@@ -182,7 +180,7 @@ def combine_params_dicts(
 ) -> Tuple[dict, str]:
     """
     Combines two dictionaries by overwriting values in baseline_dict with values from new_dict.
-    new_dict is a flatted input dictionary with keys separated by FLATTENED_PARAM_CONNECTOR.
+    new_dict is a flattened input dictionary with keys separated by FLATTENED_PARAM_CONNECTOR.
     The scenario_key dictionary in baseline_dict is flattened and combined with the input new_dict.
     The dictionary is by default unflattened before returning.
 
@@ -198,7 +196,54 @@ def combine_params_dicts(
             - The combined dictionary contains the merged key-value pairs from both input dictionaries, with scenario key preserved.
             - The summary string lists the keys that were updated (present in both original dicts),
               keys not modified (present in baseline_dict only), and keys added (present in new_dict only).
+
+    Examples:
+        - To merge only lower level parameters from a new_dict into a baseline_dict scenario
+        >>> base = {"scenario": {"mean": 1.0, "scale": 2.0}}
+        >>> new = {"mean": 2.5}
+        >>> combine_params_dicts(base, new, scenario_key="scenario")
+        {"scenario": {"mean": 2.5, "scale": 2.0}}
+
+        - To merge hierarchical parameters that are consistent across model constructions
+        >>> base = {"scenario": {"normal": {"mean": 0.0, "sd": 1.0}, "scale": 2.0}}
+        >>> new = {"normal>>>mean": 2.5}
+        >>> combine_params_dicts(base, new, scenario_key="scenario")
+        {"scenario": {"normal": {"mean": 2.5, "sd": 1.0}, "scale": 2.0}}
+
+        - To replace whole chunks of hierarchically nested parameters
+        >>> base = {"scenario": {"my_distribution": {"normal": {"mean": 0.0, "sd": 1.0}}, "scale": 2.0}}
+        >>> new = {"my_distribution>>>gamma>>>rate": 4.0, "my_distribution>>>gamma>>>shape": 10.0}
+        >>> combine_params_dicts(base, new, scenario_key="scenario", overwrite_unnested=True)
+        {"scenario": {"my_distribution": {"gamma": {"rate": 4.0, "shape": 10.0}}, "scale": 2.0}}
+
+        - An alternative is to allow for a hierarchical new_dict to replace hierarchical terms
+        >>> base = {"scenario": {"my_distribution": {"normal": {"mean": 0.0, "sd": 1.0}}, "scale": 2.0}}
+        >>> new = {"my_distribution": {"gamma": {"rate": 4.0, "shape": 10.0}}
+        >>> combine_params_dicts(base, new, scenario_key="scenario", overwrite_unnested=True)
+        {"scenario": {"my_distribution": {"gamma": {"rate": 4.0, "shape": 10.0}}, "scale": 2.0}}
     """
+
+    # Evaluate if new_dict is at the scenario key level and lower if so
+    must_lower = False
+    for key in new_dict.keys():
+        if key == scenario_key:
+            must_lower = True
+            warnings.warn(
+                "Scenario key was included in the `new_dict` dictionary. Removing and lowering."
+            )
+    if must_lower:
+        new_dict = new_dict[scenario_key]
+
+    # Check for any hierarchical parameters
+    must_flatten = False
+    for value in new_dict.values():
+        if isinstance(value, dict):
+            must_flatten = True
+            warnings.warn(
+                "There are hierarchical values in the `new_dict` dictionary. If this is unintentional, please abort the process. Otherwise, flattening"
+            )
+    if must_flatten:
+        new_dict = flatten_dict(new_dict, sep=sep)
 
     temp_dict = baseline_dict[scenario_key]
 

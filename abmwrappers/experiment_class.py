@@ -3,7 +3,6 @@ import os
 import pickle
 import random
 import shutil
-import subprocess
 import warnings
 
 import cfa_azure.helpers as azb_helpers
@@ -786,9 +785,9 @@ class Experiment:
             f"simulation_{simulation_index}.{self.input_file_type}"
         )
 
-        if simulation_index % self.n_simulations == 0:
+        if self.verbose and simulation_index % self.n_simulations == 0:
             print(
-                "No preprocessing step supplied to transform input parameters. Printing directly to file"
+                "Writing exe file inputs across the SimulationBundle indices"
             )
         formatted_inputs = utils.gcm_parameters_writer(
             params=simulation_params,
