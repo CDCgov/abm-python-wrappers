@@ -110,6 +110,22 @@ def products_from_index(
     cmd: str = None,
     clean: bool = False,
 ):
+    """
+    Function that writes input files for the executeable from a valid simulation index in the SimulationBundle history
+    The executeable is then called and products from the outputs of the model are returned
+
+    Args:
+        :param simulation_index: integer index of a viable simulation from the cumulative simulation runs across SimulationBundle objects in the experiment history
+        :param experiment: Experiment object
+        :param distance_fn: Distance function supplied that accepts target data and results data
+        :param data_processing_fn: Post-processing function to be applied on raw_outputs
+        :param products: products parquet files to be created from the post-processing of raw output results,
+            Currently implemented values are `["simulations", "distances"]` for the results and distances attribute of SimulationBundles, respectively
+        :param products_output_dir: Output directory path, defaults to the Experiment data.path,
+        :param scenario_key: Scenario key used to access parameters when combining dictionaries,
+        :param cmd: Command to execute the model .If None, the default command for the model type is run,
+        :param clean: Argument to remove the raw_output folders of the data directory after the simulation is run. Default false
+    """
     if products is None:
         products = ["distances", "simulations"]
 
@@ -255,7 +271,7 @@ def run_abcsmc(
     if scenario_key is None:
         scenario_key = experiment.scenario_key
 
-    if experiment.current_step == 0 or experiment.current_step is None:
+    if experiment.current_step is None:
         experiment.initialize_simbundle(
             prior_distribution_dict=prior_distribution_dict,
             changed_baseline_params=changed_baseline_params,
@@ -265,7 +281,7 @@ def run_abcsmc(
 
     if experiment.azure_batch:
         print(
-            "Not fully implemented yet - requires direct upload of gather and task steps"
+            "Not fully automated yet - requires direct upload of gather and task steps"
         )
 
         if experiment.client is None:
@@ -481,8 +497,6 @@ def create_scenario_subexperiments(
     input_files = os.listdir(input_folder)
 
     index = 0
-    experiment.experiments_path = experiment.super_experiment_name
-    scenarios_name = "scenarios"
     for fp in input_files:
         if not fp.endswith(experiment.input_file_type):
             continue
@@ -493,7 +507,7 @@ def create_scenario_subexperiments(
         scenario_subexperiment = f"scenario={index}"
         scenario_input_path = os.path.join(
             experiment.directory,
-            scenarios_name,
+            "scenarios",
             scenario_subexperiment,
             "input",
         )
@@ -507,7 +521,8 @@ def create_scenario_subexperiments(
         new_config = os.path.join(scenario_input_path, "config.yaml")
         with open(experiment.config_file, "r") as f:
             config = yaml.load(f, Loader=yaml.SafeLoader)
-        config["local_path"]["super_experiment_name"] = scenarios_name
+        # Use the scenarios subfolder created during scenario_input_path as super experiment
+        config["local_path"]["super_experiment_name"] = "scenarios"
         config["local_path"]["sub_experiment_name"] = scenario_subexperiment
         config["local_path"]["default_params_file"] = new_params_file
         with open(new_config, "w") as f:
@@ -515,7 +530,7 @@ def create_scenario_subexperiments(
 
         index += 1
 
-    # Delete empty data directory
+    # Delete empty data directory - do not call utils.remove_directory_tree because folders should be empty.
     os.rmdir(os.path.join(experiment.data_path, "input"))
     os.rmdir(experiment.data_path)
 
