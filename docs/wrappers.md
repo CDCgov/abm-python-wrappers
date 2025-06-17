@@ -247,7 +247,7 @@ for scenario in os.listdir(scenarios_dir):
         clean=clean,
     )
 experiment.save(
-    os.path.join(experiment.directory, "data", "experiment.pkl")
+    os.path.join(experiment.directory, "data", "experiment_history.pkl")
 )
 ```
 

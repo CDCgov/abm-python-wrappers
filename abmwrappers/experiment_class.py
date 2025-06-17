@@ -72,11 +72,12 @@ class Experiment:
             self.restore(img_file)
         # Otherwise, instantiate a new experiment with load_config
         else:
+            # Rread files and set directories
             self.config_file = config_file
             self.experiments_path = experiments_directory
             self.directory = os.path.dirname(config_file)
 
-            #
+            # Remove the input directory from the driectory path if it exists
             if self.directory.endswith("input") or self.directory.endswith(
                 "input/"
             ):
@@ -84,11 +85,9 @@ class Experiment:
 
             # Remove relative path
             if self.directory.startswith("./"):
-                self.directory = os.path.abspath(self.directory)
+                self.directory = self.directory.lstrip("./")
 
-            self.simulation_bundles = {}
-            self.current_step = None
-
+            # If the config file is relative to the experiments directoyr, adjust file naming
             if not os.path.exists(config_file):
                 # Check if the config file exists in the experiments directory
                 tmp = os.path.join(experiments_directory, config_file)
@@ -98,12 +97,12 @@ class Experiment:
 
                     # Warn that config file is modified
                     warnings.warn(
-                        f"Config file {config_file} is modified. Using {tmp} instead.",
+                        f"Config file path {config_file} does not exist. Using {tmp} based in experiment directory {experiments_directory} instead.",
                         UserWarning,
                     )
                 else:
                     raise FileNotFoundError(
-                        f"Config file {config_file} does not exist."
+                        f"Config file {config_file} does not exist from root or experiments directory."
                     )
 
             self.load_config()
@@ -131,11 +130,23 @@ class Experiment:
     # --------------------------------------------
     # Loading and storing the experiment
     # --------------------------------------------
+    def _set_or(
+        self, key: str, lookup: dict, default=None, sto_key: str = None
+    ):
+        if sto_key is None:
+            sto_key = key
+        if key in lookup:
+            self.__setattr__(sto_key, lookup[key])
+        else:
+            self.__setattr__(sto_key, default)
 
     def load_config(self):
         """
-        load the parameters from the experimental file
-        establishes the experimental components, paths, and handles tha azure configuration file
+        Load the parameters from the experimental config file
+        Establishes theattributes for running Experiments and coordinates the file structure/pathing
+        If `azure_batch`is set to True in the config, initializes the Azure client using config.toml and writes the azure batch config file
+
+        This method should not currently be called manually as it is done during initializing a new Experiment object from a config path
         """
         with open(self.config_file, "r") as f:
             experimental_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -165,7 +176,7 @@ class Experiment:
                 self.directory != specified_experiment_path
                 and self.directory != self.experiments_path
             ):
-                warnings.warn(
+                raise ValueError(
                     f"Config file directory {self.directory} does not match the experiment path {specified_experiment_path} specified in file and isn't at experiments folder root {self.experiments_path}."
                 )
 
@@ -199,13 +210,16 @@ class Experiment:
             )
 
         # Check if scenario griddle file is specified
-        if "griddle_file" in experimental_config["local_path"]:
-            self.griddle_file = experimental_config["local_path"][
-                "griddle_file"
-            ]
+        self._set_or(
+            key="griddle_file", lookup=experimental_config["local_path"]
+        )
 
         # --------------------------------------------
         # Experimental components
+
+        self.simulation_bundles = {}
+        self.current_step = None
+
         self.data_path = os.path.join(self.directory, "data")
         os.makedirs(self.data_path, exist_ok=True)
 
@@ -220,11 +234,12 @@ class Experiment:
             "default_params_file"
         ]
 
-        target_data_file = experimental_config["local_path"][
-            "target_data_file"
-        ]
-        if target_data_file is not None:
-            self.target_data = pl.read_csv(target_data_file)
+        # Store target data from file path if supplied
+        self._set_or(
+            key="target_data_file", lookup=experimental_config["local_path"]
+        )
+        if self.target_data_file is not None:
+            self.target_data = pl.read_csv(self.target_data_file)
         else:
             self.target_data = None
 
@@ -232,19 +247,18 @@ class Experiment:
         self.n_particles = experimental_config["experiment_conditions"][
             "samples_per_step"
         ]
-        self.replicates = experimental_config["experiment_conditions"][
-            "replicates_per_particle"
-        ]
-        if self.replicates is None:
-            self.replicates = 1
+
+        self._set_or(
+            key="replicates_per_particle",
+            lookup=experimental_config["experiment_conditions"],
+            default=1,
+            sto_key="replicates",
+        )
 
         self.n_simulations = self.n_particles * self.replicates
 
         # Tolerance can be specified for each step or stored as a null in the case of not running abcsmc using the wrappers
-        if (
-            experimental_config["experiment_conditions"]["tolerance"]
-            is not None
-        ):
+        if "tolerance" in experimental_config["experiment_conditions"]:
             self.tolerance_dict = {
                 int(k): float(v)
                 for k, v in experimental_config["experiment_conditions"][
@@ -258,26 +272,38 @@ class Experiment:
         else:
             self.tolerance_dict = None
 
+        if self.verbose and (
+            self.tolerance_dict is None or self.target_data is None
+        ):
+            warnings.warn(
+                """Target data and/or tolerance dict are currently specified as None.
+                    No ABC routines can be run without at least one tolerance step and target data
+                    declared through config file.""",
+                UserWarning,
+            )
+
         # In simulation parameter changes can be specified through config or appended later in helper functions
         # Scenario key must be declared to access the parameter set of interest in the input file
         self.scenario_key = experimental_config["experiment_conditions"][
             "scenario_key"
         ]
-        if (
-            "changed_baseline_params"
-            in experimental_config["experiment_conditions"]
-        ):
-            self.changed_baseline_params = experimental_config[
-                "experiment_conditions"
-            ]["changed_baseline_params"]
-        else:
-            self.changed_baseline_params = {}
+
+        self._set_or(
+            key="changed_baseline_params",
+            lookup=experimental_config["experiment_conditions"],
+            default={},
+        )
 
         # --------------------------------------------
         # Azure batch parameter loading
         self.azure_batch = experimental_config["azb"]["azure_batch"]
 
         if self.azure_batch:
+            if "azb_config" not in experimental_config["azb"]:
+                raise ValueError(
+                    "Azure batch config under key `azb_config` must be supplied if `azure_batch` is True."
+                )
+
             self.azb_config_path = os.path.join(
                 self.directory, experimental_config["azb"]["azb_config_path"]
             )
@@ -287,10 +313,16 @@ class Experiment:
             self.create_pool = experimental_config["azb"]["create_pool"]
 
             # Read the Azure Batch configuration from the config file relevant for Storage
-            az_config = azb_helpers.read_config(
-                experimental_config["azb"]["azb_config"]["config_path"]
-            )
-            self.storage_config = {"Storage": az_config["Storage"]}
+            az_config_path = experimental_config["azb"]["azb_config"][
+                "config_path"
+            ]
+            if os.path.exists(az_config_path):
+                az_config = azb_helpers.read_config(az_config_path)
+                self.storage_config = {"Storage": az_config["Storage"]}
+            else:
+                raise ValueError(
+                    f"Path to Azure batch config {az_config_path} does not exist."
+                )
 
             # Newly loaded experiments from config have access to a config.toml pathed to "azb_config"
             (
@@ -309,15 +341,7 @@ class Experiment:
             self.storage_config = None
             self.blob_container_name = None
 
-        if self.tolerance_dict is None or self.target_data is None:
-            warnings.warn(
-                """Target data and/or tolerance dict are currently specified as None.
-                    No ABC routines can be run without at least one tolerance step and target data
-                    declared through config file.""",
-                UserWarning,
-            )
-
-    def save(self, output_file: str):
+    def save(self, output_file: str = None):
         """
         Lossy compression to save a reproducible savepoint
         Stores all information except for simulation bundle results to compressed pickle file
@@ -325,22 +349,33 @@ class Experiment:
         Directory data:
             - config file
             - directory
-            - data
-            - exe_file
+            - data path
+            - exe_file and model type
+            - Azure batch and storage credential
+            - blob container name
         Simulation bundle data:
             - current step
             - distances
             - weights
             - accepted
             - inputs
+            - changed baseline parameters
         Experiment data:
             - tolerance steps
+            - target data
+            - scenario key
+            - seed
             - priors
             - perturbation kernels
             - replicate counts (particle count and per particle)
         """
 
         # Create a dictionary to store the data
+        if output_file is None:
+            output_file = os.path.join(
+                self.data_path, "experiment_history.pkl"
+            )
+
         data = {
             "config_file": self.config_file,
             "directory": self.directory,
