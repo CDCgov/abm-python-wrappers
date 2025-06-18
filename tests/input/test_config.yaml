@@ -5,10 +5,6 @@ experiment_conditions:
   samples_per_step: 1
   seed: 12345
   scenario_key: baseScenario
-  tolerance: null
 local_path:
   default_params_file: examples/gcm_facemask_azure/input/config.yaml
   exe_file: target/gcm-seir-mask-1.0.0-SNAPSHOT-jar-with-dependencies.jar
-  sub_experiment_name: null
-  super_experiment_name: null
-  target_data_file: null

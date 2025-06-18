@@ -2,6 +2,7 @@ import os
 
 from abctools.abc_classes import SimulationBundle
 from polars.testing import assert_frame_equal
+from scipy.stats import norm
 
 from abmwrappers.experiment_class import Experiment
 
@@ -12,7 +13,9 @@ def test_compress_and_restore():
         config_file="tests/input/test_config.yaml",
     )
 
-    init_bundle = experiment.initialize_simbundle()
+    init_bundle = experiment.initialize_simbundle(
+        prior_distribution_dict={"latentPeriod": norm(3, 1.0)}
+    )
     output_file = "tests/output/experiment_history.pkl"
     os.makedirs("tests/output", exist_ok=True)
     experiment.save(output_file=output_file)

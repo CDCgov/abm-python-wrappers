@@ -126,6 +126,10 @@ class Experiment:
                 raise ValueError(
                     f"Keyword {k} is not an attribute and is not in `[prior_distribution_dict, perturbation_kernel_dict]`"
                 )
+        if "perturbation_kernel_dict" not in self.__dict__.keys():
+            self.perturbation_kernel_dict = None
+        if "priors" not in self.__dict__.keys():
+            self.priors = None
 
     # --------------------------------------------
     # Loading and storing the experiment
@@ -153,12 +157,13 @@ class Experiment:
 
         # --------------------------------------------
         # Experiment name
-        self.super_experiment_name = experimental_config["local_path"][
-            "super_experiment_name"
-        ]
-        self.sub_experiment_name = experimental_config["local_path"][
-            "sub_experiment_name"
-        ]
+        self._set_or(
+            key="super_experiment_name",
+            lookup=experimental_config["local_path"],
+        )
+        self._set_or(
+            key="sub_experiment_name", lookup=experimental_config["local_path"]
+        )
 
         # Check if the experiment name is specified
         if (
@@ -205,9 +210,12 @@ class Experiment:
                 self.directory = specified_experiment_path
         else:
             self.directory = self.experiments_path
-            print(
-                "No super experiment specified, operating in root experiments directory"
-            )
+            self.super_expeirment_name = None
+            self.sub_experiment_name = None
+            if self.verbose:
+                print(
+                    "Super and sub experiment must be specified together. Operating in root experiments directory instead"
+                )
 
         # Check if scenario griddle file is specified
         self._set_or(
@@ -545,6 +553,8 @@ class Experiment:
         )
 
         # Save prior distribution for use in experiment and draw
+        if "priors" not in self.__dict__.keys():
+            self.priors = None
         if prior_distribution_dict is not None:
             if (
                 self.priors is not None
@@ -555,7 +565,7 @@ class Experiment:
                 )
             self.priors = prior_distribution_dict
 
-        if self.priors:
+        if self.priors is not None:
             input_df = abc_methods.draw_simulation_parameters(
                 params_inputs=self.priors,
                 n_parameter_sets=self.n_particles,
@@ -651,6 +661,8 @@ class Experiment:
         """
         # Save priors and perturbation kernel distribution for use in experiment if not already stored and draw
         # Priors must be consistent for the whole experiment
+        if "priors" not in self.__dict__.keys():
+            self.priors = None
         if prior_distribution_dict is not None:
             if (
                 self.priors is not None
@@ -662,6 +674,8 @@ class Experiment:
             self.priors = prior_distribution_dict
 
         # Perturbation kernels do not necessarily need to be the same across steps for resample
+        if "perturbation_kernel_dict" not in self.__dict__.keys():
+            self.perturbation_kernel_dict = None
         if perturbation_kernel_dict is not None:
             if (
                 self.perturbation_kernel_dict is not None
