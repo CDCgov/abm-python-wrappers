@@ -367,7 +367,7 @@ def run_abcsmc(
                 realized_sim_index = (
                     simulation_index + step * experiment.n_simulations
                 )
-                task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
+                task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -i /{blob_experiment_path} -d /{blob_data_path} --clean --products "
                 task_i_cmd += " ".join(products)
 
                 sim_task_id = client.add_task(
@@ -379,7 +379,7 @@ def run_abcsmc(
                     tasks_id_range.append(sim_task_id)
 
             task_range = tuple(tasks_id_range)
-            gather_task_cmd = f"poetry run python /{gather_script} -x gather -f /{blob_experiment_path} -i {experiment.sub_experiment_name}/data"
+            gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
             print(gather_task_cmd)
 
             gather_task_id = client.add_task(
