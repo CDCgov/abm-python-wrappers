@@ -1,5 +1,6 @@
 import os
 import subprocess
+import pathlib
 from multiprocessing import Pool
 from typing import Callable
 
@@ -266,7 +267,7 @@ def run_abcsmc(
     changed_baseline_params: dict = {},
     files_to_upload: list = [],
     scenario_key: str = None,
-    local_compress: bool = False,
+    local_compress: bool = True,
 ):
     if scenario_key is None:
         scenario_key = experiment.scenario_key
@@ -336,10 +337,13 @@ def run_abcsmc(
         blob_experiment_directory = os.path.join(
             blob_container_name, experiment.sub_experiment_name
         )
+        user_script = pathlib.Path(__file__)
+        files_to_upload.append(user_script)
+        script_name = os.path.basename(user_script)
         gather_script = os.path.join(
-            blob_experiment_directory, "gather_step.py"
+            blob_experiment_directory, script_name
         )
-        task_script = os.path.join(blob_experiment_directory, "task.py")
+        task_script = os.path.join(blob_experiment_directory, script_name)
         blob_data_path = os.path.join(blob_experiment_directory, "data")
         blob_experiment_path = os.path.join(
             blob_experiment_directory, "experiment_history.pkl"
@@ -365,7 +369,7 @@ def run_abcsmc(
                 realized_sim_index = (
                     simulation_index + step * experiment.n_simulations
                 )
-                task_i_cmd = f"poetry run python /{task_script} --index {realized_sim_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
+                task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -f /{blob_experiment_path} -k {scenario_key} -o /{blob_data_path} --clean --products "
                 task_i_cmd += " ".join(products)
 
                 sim_task_id = client.add_task(
@@ -377,7 +381,7 @@ def run_abcsmc(
                     tasks_id_range.append(sim_task_id)
 
             task_range = tuple(tasks_id_range)
-            gather_task_cmd = f"poetry run python /{gather_script} -f /{blob_experiment_path} -i {experiment.sub_experiment_name}/data"
+            gather_task_cmd = f"poetry run python /{gather_script} -x gather -f /{blob_experiment_path} -i {experiment.sub_experiment_name}/data"
             print(gather_task_cmd)
 
             gather_task_id = client.add_task(
@@ -394,7 +398,7 @@ def run_abcsmc(
             dest_path=experiment_file,
             container_name=blob_container_name,
         )
-    elif not local_compress:
+    elif local_compress:
         task_script = "scripts/subprocesses/task.py"
         experiment_path = os.path.join(
             experiment.data_path, "experiment_history.pkl"

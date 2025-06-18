@@ -1,14 +1,11 @@
 import argparse
-
 from abmwrappers import wrappers
 
-
-def gather_results(
+def main(
     img_file: str,
     products_path: str,
 ):
     wrappers.update_abcsmc_img(img_file, products_path)
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -24,4 +21,10 @@ parser.add_argument(
     type=str,
     required=True,
     help="Path to the products directory",
+)
+
+args = parser.parse_args()
+main(
+    img_file=args.input_experiment_file,
+    products_path=args.products_path,
 )

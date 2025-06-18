@@ -77,7 +77,7 @@ class Experiment:
             self.experiments_path = experiments_directory
             self.directory = os.path.dirname(config_file)
 
-            # Remove the input directory from the driectory path if it exists
+            # Remove the input directory from the directory path if it exists
             if self.directory.endswith("input") or self.directory.endswith(
                 "input/"
             ):

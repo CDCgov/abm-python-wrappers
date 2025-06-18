@@ -16,8 +16,8 @@ def main(
     wrappers.products_from_index(
         simulation_index=simulation_index,
         experiment=experiment,
-        distance_fn=experiment.distance_fn,
-        data_processing_fn=experiment.data_processing_fn,
+        distance_fn=fn1,# Must be user-defined
+        data_processing_fn=fn2, # Must be user-defined
         products=products,
         products_output_dir=products_output_dir,
         scenario_key=scenario_key,
