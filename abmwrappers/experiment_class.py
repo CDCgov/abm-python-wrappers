@@ -116,7 +116,7 @@ class Experiment:
                     print(
                         f"Replacing {k} current value {v} with old value {old_v}"
                     )
-            elif k == "prior_distirbution_dict":
+            elif k == "prior_distribution_dict":
                 assert isinstance(v, dict)
                 self.priors = v
             elif k == "perturbation_kernel_dict":
