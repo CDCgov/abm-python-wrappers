@@ -1,6 +1,6 @@
 import os
-import subprocess
 import pathlib
+import subprocess
 from multiprocessing import Pool
 from typing import Callable
 
@@ -340,9 +340,7 @@ def run_abcsmc(
         user_script = pathlib.Path(__file__)
         files_to_upload.append(user_script)
         script_name = os.path.basename(user_script)
-        gather_script = os.path.join(
-            blob_experiment_directory, script_name
-        )
+        gather_script = os.path.join(blob_experiment_directory, script_name)
         task_script = os.path.join(blob_experiment_directory, script_name)
         blob_data_path = os.path.join(blob_experiment_directory, "data")
         blob_experiment_path = os.path.join(
