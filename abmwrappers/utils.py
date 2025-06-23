@@ -8,7 +8,6 @@ import warnings
 from types import ModuleType
 from typing import Tuple
 
-import cfa_azure.blob_helpers as blob_helpers
 import numpy as np
 import polars as pl
 import yaml
@@ -32,6 +31,7 @@ def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
 
 realimport, builtins.__import__ = builtins.__import__, tryimport
 from cfa_azure.clients import AzureClient
+import cfa_azure.blob_helpers as blob_helpers
 
 # Global character sequence for flattening nested parameters
 FLATTENED_PARAM_CONNECTOR = ">>>"
