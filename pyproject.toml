@@ -2,7 +2,7 @@
 name = "abmwrappers"
 version = "0.2.0"
 description = ""
-authors = ["Chris Valleau, William Koval"]
+authors = ["Team CMEI - CDC/OD/ORR/CFA"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
