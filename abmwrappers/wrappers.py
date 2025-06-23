@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Callable
 
 # Workaround to handle import error with griddler on cfa_azure
-import __builtin__
+import builtins
 import polars as pl
 import yaml
 
@@ -28,7 +28,7 @@ def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
         return DummyModule(name)
 
 
-realimport, __builtin__.__import__ = __builtin__.__import__, tryimport
+realimport, builtins.__import__ = builtins.__import__, tryimport
 from cfa_azure.clients import AzureClient
 
 # --------------------------
