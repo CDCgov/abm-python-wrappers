@@ -8,12 +8,10 @@ from typing import Callable
 
 import polars as pl
 import yaml
+from cfa_azure.clients import AzureClient
 
 from abmwrappers import utils
 from abmwrappers.experiment_class import Experiment
-
-realimport, builtins.__import__ = builtins.__import__, utils.tryimport
-from cfa_azure.clients import AzureClient
 
 # --------------------------
 # Simulation wrappers
