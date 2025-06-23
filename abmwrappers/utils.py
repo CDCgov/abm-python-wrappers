@@ -1,18 +1,37 @@
 import base64
+import builtins
 import itertools
 import json
 import os
 import subprocess
 import warnings
+from types import ModuleType
 from typing import Tuple
 
 import cfa_azure.blob_helpers as blob_helpers
 import numpy as np
 import polars as pl
 import yaml
-from cfa_azure.clients import AzureClient
 from scipy.stats import truncnorm
 from scipy.stats.qmc import Sobol
+
+
+class DummyModule(ModuleType):
+    def __getattr__(self, key):
+        return None
+
+    __all__ = []
+
+
+def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
+    try:
+        return realimport(name, globals, locals, fromlist, level)
+    except ImportError:
+        return DummyModule(name)
+
+
+realimport, builtins.__import__ = builtins.__import__, tryimport
+from cfa_azure.clients import AzureClient
 
 # Global character sequence for flattening nested parameters
 FLATTENED_PARAM_CONNECTOR = ">>>"

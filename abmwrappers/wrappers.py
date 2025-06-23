@@ -1,34 +1,18 @@
+# Workaround to handle import error with griddler on cfa_azure
+import builtins
 import os
 import pathlib
 import subprocess
 from multiprocessing import Pool
-from types import ModuleType
 from typing import Callable
 
-# Workaround to handle import error with griddler on cfa_azure
-import builtins
 import polars as pl
 import yaml
 
 from abmwrappers import utils
 from abmwrappers.experiment_class import Experiment
 
-
-class DummyModule(ModuleType):
-    def __getattr__(self, key):
-        return None
-
-    __all__ = []
-
-
-def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
-    try:
-        return realimport(name, globals, locals, fromlist, level)
-    except ImportError:
-        return DummyModule(name)
-
-
-realimport, builtins.__import__ = builtins.__import__, tryimport
+realimport, builtins.__import__ = builtins.__import__, utils.tryimport
 from cfa_azure.clients import AzureClient
 
 # --------------------------
