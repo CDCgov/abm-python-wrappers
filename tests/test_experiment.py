@@ -32,3 +32,25 @@ def test_compress_and_restore():
     assert init_bundle.weights == restored_bundle.weights
     assert init_bundle._step_number == restored_bundle._step_number
     assert init_bundle._baseline_params == restored_bundle._baseline_params
+
+
+def test_init_kwargs():
+    prior_distribution_dict = {"latentPeriod": norm(3, 1.0)}
+
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+        prior_distribution_dict=prior_distribution_dict,
+    )
+    assert prior_distribution_dict == experiment.priors
+
+
+def test_init_kwargs_update_parms():
+    changed_baseline_params = {"latentPeriod": 3.0}
+
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+        changed_baseline_params=changed_baseline_params,
+    )
+    assert changed_baseline_params == experiment.changed_baseline_params
