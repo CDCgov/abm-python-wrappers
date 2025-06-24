@@ -110,7 +110,7 @@ class Experiment:
         # Optional inputs for use in getters or wrappers later or attributes to overwrite from config
         for k, v in kwargs.items():
             if k in self.__dict__.keys():
-                old_v = self.__getattr__(k)
+                old_v = self.__dict__[k]
                 self.__setattr__(k, v)
                 if self.verbose:
                     print(
