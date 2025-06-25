@@ -118,10 +118,10 @@ class Experiment:
                     )
             elif k == "prior_distribution_dict":
                 assert isinstance(v, dict)
-                self.priors = v
+                self.priors = utils.flatten_dict(v)
             elif k == "perturbation_kernel_dict":
                 assert isinstance(v, dict)
-                self.perturbation_kernel_dict = v
+                self.perturbation_kernel_dict = utils.flatten_dict(v)
             else:
                 raise ValueError(
                     f"Keyword {k} is not an attribute and is not in `[prior_distribution_dict, perturbation_kernel_dict]`"
@@ -558,12 +558,13 @@ class Experiment:
         if prior_distribution_dict is not None:
             if (
                 self.priors is not None
-                and self.priors is not prior_distribution_dict
+                and self.priors
+                is not utils.flatten_dict(prior_distribution_dict)
             ):
                 raise ValueError(
                     "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
                 )
-            self.priors = prior_distribution_dict
+            self.priors = utils.flatten_dict(prior_distribution_dict)
 
         if self.priors is not None:
             input_df = abc_methods.draw_simulation_parameters(
@@ -666,12 +667,13 @@ class Experiment:
         if prior_distribution_dict is not None:
             if (
                 self.priors is not None
-                and self.priors is not prior_distribution_dict
+                and self.priors
+                is not utils.flatten_dict(prior_distribution_dict)
             ):
                 raise ValueError(
                     "Different prior distribution already specified on experiment initiation. Please declare only one set of priors for inital simulation bundle."
                 )
-            self.priors = prior_distribution_dict
+            self.priors = utils.flatten_dict(prior_distribution_dict)
 
         # Perturbation kernels do not necessarily need to be the same across steps for resample
         if "perturbation_kernel_dict" not in self.__dict__.keys():
@@ -680,12 +682,14 @@ class Experiment:
             if (
                 self.perturbation_kernel_dict is not None
                 and self.perturbation_kernel_dict
-                is not perturbation_kernel_dict
+                is not utils.flatten_dict(perturbation_kernel_dict)
             ):
                 warnings.warn(
                     "Different perturbation distribution already specified on experiment initiation. The perturbation kernel will be replaced."
                 )
-            self.perturbation_kernel_dict = perturbation_kernel_dict
+            self.perturbation_kernel_dict = utils.flatten_dict(
+                perturbation_kernel_dict
+            )
 
         # Ensure that both priors and perturbation kernels are present for resample
         if self.priors is None:

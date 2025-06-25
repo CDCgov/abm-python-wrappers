@@ -26,8 +26,10 @@ Azure and creating save points during the experiment run.
 - `experiments_directory` (`str`, optional): Path to the experiments directory. Required for config-based initialization.
 - `config_file` (`str`, optional): Path to the configuration file. Used to initialize a new experiment. Must be provided alongside an experiments directory.
 - `img_file` (`str`, optional): Path to the compressed experiment file. Used to restore a previously saved experiment.
-- `prior_distribution_dict` (`dict`, optional): Dictionary of prior distributions for simulation parameters.
-- `perturbation_kernel_dict` (`dict`, optional): Dictionary of perturbation kernels for simulation parameters.
+- `verbose` (`bool`, default=True): Whether or not to print out some non-critical warnigns and progress statements when operating with the experimnt
+- `**kwargs` : Key word arguments to provide additional parameters orr overwrite config parameters. In particular,
+    - `prior_distribution_dict` (`dict`, optional): Dictionary of prior distributions for simulation parameters.
+    - `perturbation_kernel_dict` (`dict`, optional): Dictionary of perturbation kernels for simulation parameters.
 
 #### Raises:
 - `ValueError`: If neither `config_file` nor `img_file` is provided.
@@ -141,3 +143,50 @@ The `Experiment` class relies on the following libraries and modules:
 ---
 
 ### Example Usage
+To initialize experiments, users can either provide the path to a `config_file` along with a relevant `experiments_directory` or provide the path to an `img_file` that contains a compressed `Experiment` pickle file.
+
+In this repo, initializing an `Experiment` in the `"tests"` folder would be
+
+```python
+experiment = Experiment(
+    experiments_directory="tests",
+    config_file="tests/path/to/input/config.yaml,
+)
+```
+
+Any parameters from the config file can be overwritten on initialization through the keyword arguments. For example, to specify that the base input file should be modified to provide a new mean for some distribution, this can be accomplished using
+```python
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file=config_file,
+        changed_baseline_params={
+            "my_distribution": {
+                "norm": {
+                    "mean": 1.0
+                }
+            }
+        }
+    )
+```
+
+Keyword arguments also accept prior distributions and perturbation kernels for ABC-SMC, declared as dictionaries. For example, using the same parameter hierarchy as above,
+```python
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file=config_file,
+        prior_distribution_dict={
+            "my_distribution": {
+                "norm": {
+                    "mean": norm(1.0, 3.0)
+                }
+            }
+        },
+        perturbation_kernel_dict={
+            "my_distribution": {
+                "norm": {
+                    "mean": norm(0.0, 0.1)
+                }
+            }
+        }
+    )
+```

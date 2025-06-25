@@ -45,6 +45,19 @@ def test_init_kwargs():
     assert prior_distribution_dict == experiment.priors
 
 
+def test_init_kwargs_hierarchical_prior():
+    # fake parameters for illustrative purposes
+    prior = norm(1.0, 3.0)
+    prior_distribution_dict = {"my_distribution": {"norm": {"mean": prior}}}
+
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+        prior_distribution_dict=prior_distribution_dict,
+    )
+    assert {"my_distribution>>>norm>>>mean": prior} == experiment.priors
+
+
 def test_init_kwargs_update_parms():
     changed_baseline_params = {"latentPeriod": 3.0}
 
