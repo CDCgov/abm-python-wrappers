@@ -256,5 +256,115 @@ Within the for loop of the above example, it would be possible to provide any po
 We end the example script by compressing the currently stored simulation bundles of each scenario and saving them to the overall experiment, so that they can be called from the upper directory. This is not necessary, but ensures all data is in the same place.
 
 ### ABC SMC - Azure
+The ABC SMC routine can be run on Azure somewhat automatically if the user includes all infromation relevant to the routine in a single python file. This file is uploaded to blob so that the virtual machines have access to the script functions. Currently, these functions have some hard-coded requirements but will be made more flexible in future releases.
+
+The core ABC SMC file should resemble
+
+```python
+
+def main(
+    config_file: str = None,
+):
+    if config_file is None:
+        raise ValueError("No config file provided")
+
+    # Check if the config file exists
+    if not os.path.exists(config_file):
+        raise FileNotFoundError(f"Config file {config_file} does not exist")
+
+    # Define prior and perturbation kernel dictionaries
+    experiment_params_prior_dist = # Some dictionary
+    perturbation_kernels = # A dictionary with the same parameter names
+
+    # Create the experiment object from the config file
+    experiment = Experiment(
+        experiments_directory="experiments",
+        config_file=config_file,
+        prior_distribution_dict=experiment_params_prior_dist,
+        perturbation_kernel_dict=perturbation_kernels,
+    )
+
+    # Run experiment object
+    wrappers.run_abcsmc(
+        experiment=experiment,
+        distance_fn=distance_fn,
+        data_processing_fn=output_fn,
+    )
+
+
+def output_fn_(outputs_dir):
+    # Code here
+
+def distance_fn(results_data: pl.DataFrame, target_data: pl.DataFrame):
+    # Code here
+
+def task(
+    simulation_index: int,
+    img_file: str,
+    clean: bool = False,
+    products_path: str = None,
+    products: list = None,
+):
+    experiment = Experiment(img_file=img_file)
+    wrappers.products_from_index(
+        simulation_index=simulation_index,
+        experiment=experiment,
+        distance_fn=distance_pois_lhood,
+        data_processing_fn=output_processing_function,
+        products=products,
+        products_output_dir=products_path,
+        clean=clean,
+    )
+
+def gather(
+    img_file: str,
+    products_path: str,
+):
+    wrappers.update_abcsmc_img(img_file, products_path)
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument("-x", "--execute", type=str, default="main")
+argparser.add_argument("-c", "--config-file", type=str, required=False)
+argparser.add_argument("-i", "--img-file", type=str, required=False)
+argparser.add_argument(
+    "-d", "--products-path",
+    type=str,
+    required=False,
+    help="Output directory for products. Typically the data path of an experiment."
+)
+
+argparser.add_argument(
+    "--index",
+    type=int,
+    help="Simulation index to be called for writing and returning products"
+)
+argparser.add_argument(
+    "--products",
+    nargs="*",
+    help="List of products to process (distances, simulations)",
+    required=False
+)
+argparser.add_argument(
+    "--clean",
+    action="store_true",
+    help="Clean up raw output files after processing into products",
+    required=False
+)
+
+args = argparser.parse_args()
+if args.execute == "main":
+    main(config_file=args.config_file)
+elif args.execute == "gather":
+    gather(img_file=args.img_file, products_path=args.products_path)
+elif args.execute == "run":
+    task(
+        simulation_index=args.index,
+        img_file=args.img_file,
+        clean=args.clean,
+        products_path=args.products_path,
+        product=args.products,
+    )
+
+```
 
 ### Scenarios and ABC SMC runs
