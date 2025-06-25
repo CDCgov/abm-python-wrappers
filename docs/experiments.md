@@ -143,7 +143,9 @@ The `Experiment` class relies on the following libraries and modules:
 ---
 
 ### Example Usage
-To initialize experiments, users can either provide the path to a `config_file` along with a relevant `experiments_directory` or provide the path to an `img_file` that contains a compressed `Experiment` pickle file.
+To initialize experiments, users can either provide the path to a `config_file`
+along with a relevant `experiments_directory` or provide the path to an
+`img_file` that contains a compressed `Experiment` pickle file.
 
 In this repo, initializing an `Experiment` in the `"tests"` folder would be
 
@@ -154,7 +156,15 @@ experiment = Experiment(
 )
 ```
 
-Any parameters from the config file can be overwritten on initialization through the keyword arguments. For example, to specify that the base input file should be modified to provide a new mean for some distribution, this can be accomplished using
+Experiments can be initialized form a config file at the root of the experiments
+directory, in this case `"tests"`, or in the path specified by their
+`super_experiment_name` and `sub_experiment_name`
+
+Any parameters from the config file can be overwritten on initialization through
+the keyword arguments. For example, to specify that the base input file should
+be modified to provide a new mean for some distribution, this can be accomplished
+using
+
 ```python
     experiment = Experiment(
         experiments_directory="tests",
@@ -169,7 +179,10 @@ Any parameters from the config file can be overwritten on initialization through
     )
 ```
 
-Keyword arguments also accept prior distributions and perturbation kernels for ABC-SMC, declared as dictionaries. For example, using the same parameter hierarchy as above,
+Keyword arguments also accept prior distributions and perturbation kernels for
+ABC-SMC, declared as dictionaries. For example, using the same parameter
+hierarchy as above,
+
 ```python
     experiment = Experiment(
         experiments_directory="tests",
@@ -189,4 +202,33 @@ Keyword arguments also accept prior distributions and perturbation kernels for A
             }
         }
     )
+```
+
+In order to restore a compressed `Experiment` using the `img_file` input, no
+other parameters need to be specified.
+
+```python
+experiment = Experiment(
+    img_file="tests/output/experiment_history.pkl",
+)
+```
+
+This can likewise be combined with keyword arguments that update the
+`Experiment` attributes. Compressing an `Experiment` again will track these
+changed attributes, as all information except for simulation results of the
+simulation bundles history dictionary is stored across save-restore cycles.
+
+A simple exmaple of manipulating Experiments using save-restore is the
+`wrappers.update_abcsmc_img` function, which is simply
+
+```python
+# Load the compressed experiment
+experiment = Experiment(img_file=experiment_file)
+
+# Load the distances
+experiment.read_distances(input_dir=products_path)
+experiment.resample()
+
+# Save the updated experiment
+experiment.save(experiment_file)
 ```

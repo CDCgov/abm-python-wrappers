@@ -268,7 +268,7 @@ def run_abcsmc(
     changed_baseline_params: dict = {},
     files_to_upload: list = [],
     scenario_key: str = None,
-    local_compress: bool = True,
+    ask_overwrite: bool = True
 ):
     if scenario_key is None:
         scenario_key = experiment.scenario_key
@@ -302,16 +302,17 @@ def run_abcsmc(
             experiment.data_path, "experiment_history.pkl"
         )
         if os.path.exists(experiment_file):
-            user_input = (
-                input(
-                    "Experiment compressed history already exists. Overwrite experiment? (Y/N): "
+            if ask_overwrite:
+                user_input = (
+                    input(
+                        "Experiment compressed history already exists. Overwrite experiment? (Y/N): "
+                    )
+                    .strip()
+                    .upper()
                 )
-                .strip()
-                .upper()
-            )
-            if user_input != "Y":
-                print("Experiment terminated by user.")
-                return
+                if user_input != "Y":
+                    print("Experiment terminated by user.")
+                    return
 
         if experiment.model_type == "gcm":
             experiment.exe_file = "app/app.jar"
@@ -397,34 +398,6 @@ def run_abcsmc(
             dest_path=experiment_file,
             container_name=blob_container_name,
         )
-    elif local_compress:
-        task_script = "scripts/subprocesses/task.py"
-        experiment_path = os.path.join(
-            experiment.data_path, "experiment_history.pkl"
-        )
-        experiment.save(experiment_path)
-        for step, tolerance in experiment.tolerance_dict.items():
-            print(
-                f"Running step {step} of {len(experiment.tolerance_dict)} with tolerance {tolerance}"
-            )
-
-            if step == max(experiment.tolerance_dict.keys()):
-                products = ["distances", "simulations"]
-            else:
-                products = ["distances"]
-
-            for simulation_number in range(experiment.n_simulations):
-                simulation_index = (
-                    simulation_number + step * experiment.n_simulations
-                )
-                task_i_cmd = f"poetry run python {task_script} --index {simulation_index} -f {experiment_path} -k {scenario_key} -o {experiment.data_path} --clean --products "
-                task_i_cmd += " ".join(products)
-
-                subprocess.run(task_i_cmd.split())
-
-            # Gathering from compressed experiment file
-            update_abcsmc_img(experiment_path, experiment.data_path)
-
     else:
         for step, tolerance in experiment.tolerance_dict.items():
             print(
@@ -462,6 +435,7 @@ def create_scenario_subexperiments(
     griddle_path: str = None,
     scenario_key: str = None,
     seed_key: str = None,
+    ask_overwrite: bool = True
 ):
     """
     Splits a series of inputs into sub-experiments under a scenario=index data structure
@@ -478,16 +452,17 @@ def create_scenario_subexperiments(
         griddle_path = experiment.griddle_file
 
     if len(os.listdir(experiment.data_path)) > 0:
-        user_input = (
-            input(
-                f"Experiment data path {experiment.data_path} is not empty before writing inputs. Overwrite data path for scenarios? (Y/N): "
+        if ask_overwrite:
+            user_input = (
+                input(
+                    f"Experiment data path {experiment.data_path} is not empty before writing inputs. Overwrite data path for scenarios? (Y/N): "
+                )
+                .strip()
+                .upper()
             )
-            .strip()
-            .upper()
-        )
-        if user_input != "Y":
-            print("Scenario split terminated by user.")
-            return
+            if user_input != "Y":
+                print("Scenario split terminated by user.")
+                return
         utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
     # Write all inputs

@@ -194,16 +194,17 @@ class Experiment:
                     specified_experiment_path, "input", "config_abc.yaml"
                 )
                 if os.path.exists(config_file):
-                    user_input = (
-                        input(
-                            f"Experiment config file {config_file} already exists. Overwrite experiment? (Y/N): "
+                    if self.verbose:
+                        user_input = (
+                            input(
+                                f"Experiment config file {config_file} already exists. Overwrite experiment? (Y/N): "
+                            )
+                            .strip()
+                            .upper()
                         )
-                        .strip()
-                        .upper()
-                    )
-                    if user_input != "Y":
-                        print("Experiment terminated by user.")
-                        return
+                        if user_input != "Y":
+                            print("Experiment terminated by user.")
+                            return
                 with open(config_file, "w") as f:
                     yaml.dump(experimental_config, f)
 
