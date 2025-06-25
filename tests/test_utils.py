@@ -51,3 +51,24 @@ def test_overwrite_hierarchical_params():
         expect={"distro": {"norm": {"mean": 0.0, "sd": 1.0}}},
         overwrite=True,
     )
+
+
+def test_overwrite_hierarchical_params_expand():
+    combine_params_test_wrapper(
+        base={"gamma": {"scale": 1.0}},
+        new={"gamma": {"shape": 3.0}},
+        expect={"gamma": {"scale": 1.0, "shape": 3.0}},
+        overwrite=True,
+    )
+
+
+def test_overwrite_hierarchical_params_expand_fail():
+    with pytest.raises(
+        Exception, match="'gamma>>>shape' not present in default params list."
+    ):
+        combine_params_test_wrapper(
+            base={"gamma": {"scale": 1.0}},
+            new={"gamma": {"shape": 3.0}},
+            expect={"gamma": {"scale": 1.0, "shape": 3.0}},
+            overwrite=False,
+        )

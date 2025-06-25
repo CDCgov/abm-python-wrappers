@@ -1,5 +1,4 @@
 # Workaround to handle import error with griddler on cfa_azure
-import builtins
 import os
 import pathlib
 import subprocess

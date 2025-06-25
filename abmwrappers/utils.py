@@ -1,11 +1,9 @@
 import base64
-import builtins
 import itertools
 import json
 import os
 import subprocess
 import warnings
-from types import ModuleType
 from typing import Tuple
 
 import cfa_azure.blob_helpers as blob_helpers
@@ -208,13 +206,13 @@ def combine_params_dicts(
 
         - To merge hierarchical parameters that are consistent across model constructions
         >>> base = {"scenario": {"normal": {"mean": 0.0, "sd": 1.0}, "scale": 2.0}}
-        >>> new = {"normal>>>mean": 2.5}
+        >>> new = {"normal": {"mean": 2.5}}
         >>> combine_params_dicts(base, new, scenario_key="scenario")
         {"scenario": {"normal": {"mean": 2.5, "sd": 1.0}, "scale": 2.0}}
 
         - To replace whole chunks of hierarchically nested parameters
         >>> base = {"scenario": {"my_distribution": {"normal": {"mean": 0.0, "sd": 1.0}}, "scale": 2.0}}
-        >>> new = {"my_distribution>>>gamma>>>rate": 4.0, "my_distribution>>>gamma>>>shape": 10.0}
+        >>> new = {"my_distribution": {"gamma": {"rate": 4.0, "shape": 10.0 } } }
         >>> combine_params_dicts(base, new, scenario_key="scenario", overwrite_unnested=True)
         {"scenario": {"my_distribution": {"gamma": {"rate": 4.0, "shape": 10.0}}, "scale": 2.0}}
 
