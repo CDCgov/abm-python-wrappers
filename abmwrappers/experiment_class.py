@@ -235,7 +235,7 @@ class Experiment:
         self.exe_file = experimental_config["local_path"]["exe_file"]
         if self.exe_file.endswith(".jar"):
             self.model_type = "gcm"
-            self.input_file_type = "YAML"
+            self.input_file_type = "yaml"
         else:
             self.model_type = "ixa"
             self.input_file_type = "json"
@@ -808,7 +808,7 @@ class Experiment:
             print(
                 "Writing exe file inputs across the SimulationBundle indices"
             )
-        formatted_inputs = utils.gcm_parameters_writer(
+        formatted_inputs = utils.abm_parameters_writer(
             params=simulation_params,
             output_type=self.input_file_type,
             unflatten=True,

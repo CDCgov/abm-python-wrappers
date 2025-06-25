@@ -143,15 +143,15 @@ def remove_directory_tree(dir_path: str, remove_root: bool = True) -> None:
         os.rmdir(dir_path)
 
 
-def gcm_parameters_writer(
-    params: dict, output_type: str = "YAML", unflatten: bool = True
+def abm_parameters_writer(
+    params: dict, output_type: str = "yaml", unflatten: bool = True
 ) -> str:
     """
     Converts a dictionary of parameters to the specified output format.
 
     Args:
         params (dict): Dictionary containing the parameters.
-        output_type (str, optional): Output format type. Defaults to 'YAML'.
+        output_type (str, optional): Output format type. Defaults to 'yaml'.
 
     Returns:
         str: String representation of the parameters in the specified format.
@@ -160,7 +160,7 @@ def gcm_parameters_writer(
     if unflatten:
         params = {key: unflatten_dict(value) for key, value in params.items()}
 
-    if output_type == "YAML":
+    if output_type == "yaml":
         params_output = yaml.dump(params)
     elif output_type == "json":
         params_output = json.dumps(params, indent=4)
