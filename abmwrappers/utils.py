@@ -513,6 +513,7 @@ def initialize_azure_client(
             client.set_pool_info(
                 mode=pool_mode,
                 dedicated_nodes=autoscale_nodes,
+                max_autoscale_nodes=autoscale_nodes,
                 cache_blobfuse=cache_blobfuse,
                 task_slots_per_node=task_slots_per_node,
             )
