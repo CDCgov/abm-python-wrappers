@@ -50,7 +50,7 @@ paths, and handles Azure Batch configuration. Called automatically on initializa
 - `data_path`: Path to the data directory.
 - `exe_file`: Path to the executable file.
 - `model_type`: Type of the model (`gcm` or `ixa`).
-- `input_file_type`: Input file type (`YAML` or `json`).
+- `input_file_type`: Input file type (`yaml` or `json`).
 - `default_params_file`: Path to the default parameters file.
 - `target_data`: Target data loaded as a Polars DataFrame.
 - `seed`: Seed for random number generation.
