@@ -892,7 +892,7 @@ pyyaml = "^6.0.1"
 type = "git"
 url = "https://github.com/CDCgov/pygriddler.git"
 reference = "HEAD"
-resolved_reference = "27877ef77e57531b3b8b302d2bdf01cce77e4440"
+resolved_reference = "817e81f670fa701c199e0cf27f6bff1452dc3a84"
 
 [[package]]
 name = "humanize"

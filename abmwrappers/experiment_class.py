@@ -848,8 +848,8 @@ class Experiment:
         with open(input_griddle, "r") as f:
             raw_griddle = json.load(f)
 
-        griddle = griddler.Griddle(raw_griddle)
-        par_sets = griddle.parse()
+        griddle = griddler.parse(raw_griddle)
+        par_sets = griddle.to_dicts()
 
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
