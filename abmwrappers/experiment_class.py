@@ -721,7 +721,7 @@ class Experiment:
         )
 
         if self.current_step > 0:
-            prev_bundle = self.simulation_bundles[self.current_step - 1]
+            prev_bundle: SimulationBundle = self.simulation_bundles[self.current_step - 1]
 
             current_bundle.weights = abc_methods.calculate_weights_abcsmc(
                 current_accepted=current_bundle.accepted,
@@ -732,6 +732,11 @@ class Experiment:
                 perturbation_kernels=self.perturbation_kernel_dict,
                 normalize=True,
             )
+            if self.verbose:
+                print(f"Used current accepted {current_bundle.accepted}")
+                print(
+                    f"Calculated weights for step {self.current_step}:\n{[i for i, val in enumerate(current_bundle.weights.values()) if val != 0]}"
+                )
 
         else:
             current_bundle.weights = {

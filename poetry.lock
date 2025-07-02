@@ -321,7 +321,7 @@ files = [
 
 [[package]]
 name = "cfa-azure"
-version = "1.5.8"
+version = "1.5.9"
 description = "module for use with Azure and Azure Batch"
 optional = false
 python-versions = "^3.10"
@@ -352,7 +352,7 @@ toml = "^0.10.2"
 type = "git"
 url = "https://github.com/CDCgov/cfa_azure.git"
 reference = "HEAD"
-resolved_reference = "327d4a427f626169def6e8b593ff754376515663"
+resolved_reference = "2ade8f054df9090fea8bacbca400a133a072b75f"
 
 [[package]]
 name = "cffi"
