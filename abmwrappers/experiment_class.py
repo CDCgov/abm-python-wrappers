@@ -720,7 +720,9 @@ class Experiment:
             tolerance=tolerance,
         )
         if self.verbose:
-            print(f"Distances for step {self.current_step} are {current_bundle.distances.values().sort()}")
+            print(
+                f"Distances for step {self.current_step} are {[v for _k, v in sorted(current_bundle.distances.items(), key=lambda item: item[1])]}"
+            )
 
         if self.current_step > 0:
             prev_bundle: SimulationBundle = self.simulation_bundles[
