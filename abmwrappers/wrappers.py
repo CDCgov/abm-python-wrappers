@@ -427,6 +427,10 @@ def run_abcsmc(
                     scenario_key=scenario_key,
                 )
 
+            # Products_from_index currently adds only one distance at a time
+            # We recreate the data loss of update_abcsmc_img here using `del`
+            del experiment.simulation_bundles[step].distances
+            experiment.read_distances(experiment.data_path)
             experiment.resample(perturbation_kernels)
 
 
