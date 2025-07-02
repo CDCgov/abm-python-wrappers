@@ -719,6 +719,8 @@ class Experiment:
         current_bundle.accept_stochastic(
             tolerance=tolerance,
         )
+        if self.verbose:
+            print(f"Distances for step {self.current_step} are {current_bundle.distances.values().sort()}")
 
         if self.current_step > 0:
             prev_bundle: SimulationBundle = self.simulation_bundles[

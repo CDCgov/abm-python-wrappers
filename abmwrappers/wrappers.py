@@ -427,7 +427,6 @@ def run_abcsmc(
                     scenario_key=scenario_key,
                 )
 
-            experiment.read_distances(input_dir=experiment.data_path)
             experiment.resample(perturbation_kernels)
 
 
