@@ -721,7 +721,14 @@ class Experiment:
         )
 
         if self.current_step > 0:
-            prev_bundle: SimulationBundle = self.simulation_bundles[self.current_step - 1]
+            prev_bundle: SimulationBundle = self.simulation_bundles[
+                self.current_step - 1
+            ]
+            if self.verbose:
+                print("Calculating weights during a resample")
+                print(
+                    f"Using nonzero acceptance weights:\n{[i for i, val in enumerate(current_bundle.acceptance_weights.values()) if val > 0]}"
+                )
 
             current_bundle.weights = abc_methods.calculate_weights_abcsmc(
                 current_accepted=current_bundle.accepted,
@@ -733,7 +740,6 @@ class Experiment:
                 normalize=True,
             )
             if self.verbose:
-                print(f"Used current accepted {current_bundle.accepted}")
                 print(
                     f"Calculated weights for step {self.current_step}:\n{[i for i, val in enumerate(current_bundle.weights.values()) if val != 0]}"
                 )
