@@ -720,8 +720,11 @@ class Experiment:
             tolerance=tolerance,
         )
         if self.verbose:
+            quantiles = pl.DataFrame(
+                {"distances": list(current_bundle.distances.values())}
+            ).quantile([0.0, 0.25, 0.5, 0.75])
             print(
-                f"Distances for step {self.current_step} are {sorted(current_bundle.distances.values())}"
+                f"Distances in step {self.current_step} have: Min={quantiles[0, 'distances']}, Q1={quantiles[1, 'distances']}, Q2={quantiles[2, 'distances']}, Q3={quantiles[3, 'distances']}"
             )
 
         if self.current_step > 0:
