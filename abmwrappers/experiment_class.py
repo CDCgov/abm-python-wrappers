@@ -721,10 +721,10 @@ class Experiment:
         )
         if self.verbose:
             quantiles = pl.DataFrame(
-                {"distances": list(current_bundle.distances.values())}
+                {"distances": [v for v in current_bundle.distances.values()]}
             ).quantile([0.0, 0.25, 0.5, 0.75])
             print(
-                f"Distances in step {self.current_step} have: Min={quantiles[0, 'distances']}, Q1={quantiles[1, 'distances']}, Q2={quantiles[2, 'distances']}, Q3={quantiles[3, 'distances']}"
+                f"Distances in step {self.current_step} have: Min={quantiles.item(0, 'distances')}, Q1={quantiles.item(1, 'distances')}, Q2={quantiles.item(3, 'distances')}, Q3={quantiles.item(3, 'distances')}"
             )
 
         if self.current_step > 0:
