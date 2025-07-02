@@ -721,7 +721,7 @@ class Experiment:
         )
         if self.verbose:
             print(
-                f"Distances for step {self.current_step} are {[v for _k, v in sorted(current_bundle.distances.items(), key=lambda item: item[1])]}"
+                f"Distances for step {self.current_step} are {sorted(current_bundle.distances.values())}"
             )
 
         if self.current_step > 0:
