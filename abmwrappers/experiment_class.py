@@ -727,7 +727,7 @@ class Experiment:
             if self.verbose:
                 print("Calculating weights during a resample")
                 print(
-                    f"Using nonzero acceptance weights:\n{[i for i, val in enumerate(current_bundle.acceptance_weights.values()) if val > 0]}"
+                    f"Using {len([i for i, val in enumerate(current_bundle.acceptance_weights.values()) if val > 0])} nonzero simulation weights"
                 )
 
             current_bundle.weights = abc_methods.calculate_weights_abcsmc(
@@ -741,7 +741,7 @@ class Experiment:
             )
             if self.verbose:
                 print(
-                    f"Calculated weights for step {self.current_step}:\n{[i for i, val in enumerate(current_bundle.weights.values()) if val != 0]}"
+                    f"Calculated {len([i for i, val in enumerate(current_bundle.weights.values()) if val != 0])} nonzero particle weights for step {self.current_step}"
                 )
 
         else:
