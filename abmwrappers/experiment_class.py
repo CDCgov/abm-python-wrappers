@@ -720,11 +720,11 @@ class Experiment:
             tolerance=tolerance,
         )
         if self.verbose:
-            quantiles = pl.DataFrame(
+            dtmp = pl.DataFrame(
                 {"distances": [v for v in current_bundle.distances.values()]}
-            ).quantile([0.0, 0.25, 0.5, 0.75])
+            )
             print(
-                f"Distances in step {self.current_step} have: Min={quantiles.item(0, 'distances')}, Q1={quantiles.item(1, 'distances')}, Q2={quantiles.item(3, 'distances')}, Q3={quantiles.item(3, 'distances')}"
+                f"Distances in step {self.current_step} have: Min={dtmp.quantile(0.0).item()}, Q1={dtmp.quantile(0.25).item()}, Q2={dtmp.quantile(0.5).item()}, Q3={dtmp.quantile(0.75).item()}"
             )
 
         if self.current_step > 0:
