@@ -269,6 +269,7 @@ def run_abcsmc(
     files_to_upload: list = [],
     scenario_key: str = None,
     ask_overwrite: bool = True,
+    keep_all_sims: bool = False,
 ):
     if scenario_key is None:
         scenario_key = experiment.scenario_key
@@ -360,7 +361,7 @@ def run_abcsmc(
         for step, tolerance in experiment.tolerance_dict.items():
             tasks_id_range = []
 
-            if step == max(experiment.tolerance_dict.keys()):
+            if step == max(experiment.tolerance_dict.keys()) or keep_all_sims:
                 products = ["distances", "simulations"]
             else:
                 products = ["distances"]
@@ -412,7 +413,7 @@ def run_abcsmc(
                     f"Execution has become misaligned from updating. Step {step} does not match current step {experiment.current_step}"
                 )
 
-            if step == max(experiment.tolerance_dict.keys()):
+            if step == max(experiment.tolerance_dict.keys()) or keep_all_sims:
                 products = ["distances", "simulations"]
             else:
                 products = ["distances"]
