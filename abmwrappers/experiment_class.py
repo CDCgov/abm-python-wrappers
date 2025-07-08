@@ -701,7 +701,7 @@ class Experiment:
         partition_by: list = None,
     ) -> pl.DataFrame:
         """
-        Function to read results from simulation output.
+        Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
         The default behavior is to search for an already-extant simulations parquet file in the experiment data path
         Alternatively, users can specify a generic file name to read from an arbitrary input directory
 
@@ -746,8 +746,6 @@ class Experiment:
             else:
                 data.write_csv(f"{input_dir}/{out_file}.csv")
         return data
-
-    # arbitrary file from raw_output and process it for parquet - helper
 
     # populate bundle history with stored simulations
 
