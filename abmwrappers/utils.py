@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import warnings
-from typing import Tuple
+from typing import Callable, Tuple
 
 import cfa_azure.blob_helpers as blob_helpers
 import numpy as np
@@ -536,6 +536,44 @@ def read_parquet_blob(
     if clean:
         remove_directory_tree(local_path)
     return df
+
+
+def read_nested_csvs(
+    input_dir: str, filename: str, processing_fn: Callable = None
+):
+    """
+    Reads nested CSV files from a specified directory and returns a Polars DataFrame.
+
+    Args:
+        input_dir (str): The directory containing the CSV files.
+        filename (str): The name of the CSV file to read.
+        processing_fn (Callable, optional): A function to process each DataFrame before concatenation.
+
+    Returns:
+        pl.DataFrame: A Polars DataFrame containing the concatenated data from all CSV files.
+    """
+    if not filename.endswith(".csv") and not filename.endswith(".CSV"):
+        if len(filename.split(".")) > 1:
+            raise ValueError("The filename must end with '.csv' or '.CSV'.")
+        else:
+            filename += ".csv"
+    csv_files = [
+        os.path.join(root, f)
+        for root, _, files in os.walk(input_dir)
+        for f in files
+        if f == filename
+    ]
+    if not csv_files:
+        raise FileNotFoundError(
+            f"No CSV files named '{filename}' found in '{input_dir}'."
+        )
+    dfs = []
+    for csv_file in csv_files:
+        df = pl.read_csv(csv_file)
+        if processing_fn:
+            df = processing_fn(df)
+        dfs.append(df)
+    return pl.concat(dfs)
 
 
 def initialize_azure_client(

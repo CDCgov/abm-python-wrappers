@@ -4,6 +4,7 @@ import pickle
 import random
 import shutil
 import warnings
+from typing import Callable
 
 import cfa_azure.helpers as azb_helpers
 import griddler
@@ -12,7 +13,7 @@ import yaml
 from abctools import abc_methods
 from abctools.abc_classes import SimulationBundle
 
-from abmwrappers import utils
+from abmwrappers import utils, wrappers
 
 
 class Experiment:
@@ -134,6 +135,7 @@ class Experiment:
     # --------------------------------------------
     # Loading and storing the experiment
     # --------------------------------------------
+
     def _set_or(
         self, key: str, lookup: dict, default=None, sto_key: str = None
     ):
@@ -618,6 +620,46 @@ class Experiment:
             )
         return self.simulation_bundles[step_id]
 
+    def run_step(
+        self,
+        data_processing_fn: Callable,
+        products: list = None,
+        step: int = None,
+    ):
+        """
+        Function to run the simulations for a particular step in the experiment history, which defaults to the current step
+        All results are generated and then processed into a single joint data frame
+
+        Args:
+            :param data_processing_fn: callable function to process the raw output data being stored as a data frame
+            :param products: list of which products to store as processed data frames
+            :param step: int of the step to run simulations from. Defaults to the current or alternatively initializes the history
+        """
+        if products is None:
+            products = ["simulations"]
+
+        if step is None:
+            step = self.current_step
+
+        # Generate products from current step if it exists or initialize
+        if step is not None:
+            simbundle = self.simulation_bundles[step]
+        else:
+            simbundle = self.initialize_simbundle()
+
+        # Run the simulation
+        for index in simbundle.inputs["simulation"]:
+            wrappers.products_from_index(
+                index,
+                experiment=self,
+                data_processing_fn=data_processing_fn,
+                products=products,
+            )
+
+    # --------------------------------------------
+    # File management
+    # --------------------------------------------
+
     def parquet_from_path(self, path: str) -> pl.DataFrame:
         if self.azure_batch:
             df = utils.read_parquet_blob(
@@ -627,11 +669,13 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
-    def read_distances(self, input_dir: str):
+    def store_distances(self, input_dir: str = None):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
         """
+        if not input_dir:
+            input_dir = self.data_path
 
         distances = self.parquet_from_path(f"{input_dir}/distances/")
 
@@ -648,8 +692,71 @@ class Experiment:
             if self.step_from_index(k) == self.current_step:
                 self.simulation_bundles[self.current_step].distances[k] = v
 
+    def read_results(
+        self,
+        filename: str = None,
+        input_dir: str = None,
+        preprocessing_fn: str = None,
+        write: bool = False,
+        partition_by: list = None,
+    ) -> pl.DataFrame:
+        """
+        Function to read results from simulation output.
+        The default behavior is to search for an already-extant simulations parquet file in the experiment data path
+        Alternatively, users can specify a generic file name to read from an arbitrary input directory
+
+        Args:
+            :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
+            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
+            :param preprocessing_fn: A function to preprocess the data before combining it withh other data during reading from CSV. If specified with a partitioned parquet file, the function If not specified, defaults to None
+            :param store: Whether to store the data in the input directory as a parquet or CSV file. If True, the data is stored as a partitioned parquet file with the name of the file without extension or is stored as a CSV at the input directory root.
+            :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
+        """
+        # Default to dat path and the simulations parquet file
+        if not input_dir:
+            input_dir = self.data_path
+        if not filename:
+            filename = "simulations"
+
+        # Read from hive-paritioned parquet if it exists and filename is not a file
+        if len(filename.split(".")) == 1 and os.path.exists(
+            f"{input_dir}/{filename}/"
+        ):
+            # Special case for names in "products"
+            data = self.parquet_from_path(f"{input_dir}/{filename}/")
+            if preprocessing_fn is not None:
+                warnings.warn(
+                    "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
+                    UserWarning,
+                )
+                data = preprocessing_fn(data)
+        # Otherwise attempt reading nested CSVs
+        else:
+            # Pre-proceesing fn is applied piece-wise to CSV
+            data = utils.read_nested_csvs(
+                input_dir, filename, preprocessing_fn
+            )
+
+        if write is not None:
+            out_file = filename.split(".")[0]
+            if partition_by is not None:
+                data.write_parquet(
+                    f"/{input_dir}/{out_file}/", partition_by=partition_by
+                )
+            else:
+                data.write_csv(f"{input_dir}/{out_file}.csv")
+        return data
+
+    # arbitrary file from raw_output and process it for parquet - helper
+
+    # populate bundle history with stored simulations
+
+    # store inputs from created jsons
+
     # --------------------------------------------
     # Resampling between experiment steps
+    # --------------------------------------------
+
     def resample(
         self,
         perturbation_kernel_dict: dict = None,
