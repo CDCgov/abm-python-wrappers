@@ -606,7 +606,7 @@ def read_nested_csvs(
         # Get the scenario and simulation keys of the path, if present.
         col_name_dict = column_keys_from_path(csv_file)
         col_keys = pl.DataFrame(col_name_dict)
-
+        print(col_keys)
         # If the specified csv is not empty, read and process
         if os.path.getsize(csv_file) > 0:
             df = pl.read_csv(csv_file)
@@ -614,7 +614,7 @@ def read_nested_csvs(
                 df = processing_fn(df)
 
             # If there are identifying keys in the path known to abmwrappers, join them here
-            if not col_keys.is_empty:
+            if not col_keys.is_empty():
                 df.join(col_keys, how="cross")
 
             # Append and then concatenate
