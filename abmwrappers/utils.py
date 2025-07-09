@@ -186,11 +186,9 @@ def column_keys_from_path(path: str) -> dict:
     def get_key(path_segment: str, key_name: str, params: dict):
         if key_name in path_segment:
             vals = digit_from_string(path_segment)
-            if len(vals) == 0:
-                continue
-            elif len(vals) == 1:
-                params.update({key_name: extracted_values[0]})
-            else:
+            if len(vals) == 1:
+                params.update({key_name: vals[0]})
+            elif len(vals) > 1:
                 raise ValueError(
                     f"Multiple {key_name} indices found in path segment '{path_segment}'."
                 )
