@@ -877,9 +877,10 @@ class Experiment:
                 input_dir, filename, data_processing_fn
             )
 
-        if write is not None:
+        if write:
             out_file = filename.split(".")[0]
             if partition_by is not None:
+                os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
                 data.write_parquet(
                     f"/{input_dir}/{out_file}/", partition_by=partition_by
                 )
