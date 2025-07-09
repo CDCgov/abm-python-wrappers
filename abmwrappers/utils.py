@@ -170,6 +170,41 @@ def abm_parameters_writer(
     return params_output
 
 
+def digit_from_string(string: str):
+    numbers = []
+    curr_num = ""
+    for char in string:
+        if char.isdigit():
+            curr_num += char
+        elif len(curr_num) > 0:
+            numbers.append(int(curr_num))
+            curr_num = ""
+    return numbers
+
+
+def column_keys_from_path(path: str) -> dict:
+    def get_key(path_segment: str, key_name: str, params: dict):
+        if key_name in path_segment:
+            vals = digit_from_string(path_segment)
+            if len(vals) == 0:
+                continue
+            elif len(vals) == 1:
+                params.update({key_name: extracted_values[0]})
+            else:
+                raise ValueError(
+                    f"Multiple {key_name} indices found in path segment '{path_segment}'."
+                )
+
+    path_list = path.split(os.sep)
+    cols = {}
+    keys = ["simulation", "scenario"]
+    for piece in path_list:
+        for k in keys:
+            get_key(piece, k, cols)
+
+    return cols
+
+
 def combine_params_dicts(
     baseline_dict: dict,
     new_dict: dict,
@@ -567,13 +602,26 @@ def read_nested_csvs(
         raise FileNotFoundError(
             f"No CSV files named '{filename}' found in '{input_dir}'."
         )
+
     dfs = []
     for csv_file in csv_files:
+        # Get the scenario and simulation keys of the path, if present.
+        col_name_dict = column_keys_from_path(csv_file)
+        col_keys = pl.DataFrame(col_name_dict)
+
+        # If the specified csv is not empty, read and process
         if os.path.getsize(csv_file) > 0:
             df = pl.read_csv(csv_file)
             if processing_fn:
                 df = processing_fn(df)
+
+            # If there are identifying keys in the path known to abmwrappers, join them here
+            if not col_keys.is_empty:
+                df.join(col_keys, how="cross")
+
+            # Append and then concatenate
             dfs.append(df)
+
     return pl.concat(dfs)
 
 
