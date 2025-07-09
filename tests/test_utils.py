@@ -72,3 +72,10 @@ def test_overwrite_hierarchical_params_expand_fail():
             expect={"gamma": {"scale": 1.0, "shape": 3.0}},
             overwrite=False,
         )
+
+
+def test_col_keys_from_path():
+    test_string = "test/path/to/col/simulation_0/scenarios=1/test.csv"
+    d = utils.column_keys_from_path(test_string)
+    assert d["simulation"] == 0
+    assert d["scenario"] == 1

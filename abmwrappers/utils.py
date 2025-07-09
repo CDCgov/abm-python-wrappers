@@ -179,27 +179,31 @@ def digit_from_string(string: str):
         elif len(curr_num) > 0:
             numbers.append(int(curr_num))
             curr_num = ""
+    if len(curr_num) > 0:
+        numbers.append(int(curr_num))
     return numbers
 
 
 def column_keys_from_path(path: str) -> dict:
-    def get_key(path_segment: str, key_name: str, params: dict):
+    def get_key(path_segment: str, key_name: str, params: dict) -> dict:
+        d = {}
         if key_name in path_segment:
             vals = digit_from_string(path_segment)
+            print(vals)
             if len(vals) == 1:
-                params.update({key_name: vals[0]})
+                d.update({key_name: vals[0]})
             elif len(vals) > 1:
                 raise ValueError(
                     f"Multiple {key_name} indices found in path segment '{path_segment}'."
                 )
+        return d
 
     path_list = path.split(os.sep)
     cols = {}
     keys = ["simulation", "scenario"]
     for piece in path_list:
         for k in keys:
-            get_key(piece, k, cols)
-
+            cols.update(get_key(piece, k, cols))
     return cols
 
 
@@ -606,7 +610,7 @@ def read_nested_csvs(
         # Get the scenario and simulation keys of the path, if present.
         col_name_dict = column_keys_from_path(csv_file)
         col_keys = pl.DataFrame(col_name_dict)
-        print(col_keys)
+
         # If the specified csv is not empty, read and process
         if os.path.getsize(csv_file) > 0:
             df = pl.read_csv(csv_file)
