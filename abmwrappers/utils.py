@@ -569,10 +569,11 @@ def read_nested_csvs(
         )
     dfs = []
     for csv_file in csv_files:
-        df = pl.read_csv(csv_file)
-        if processing_fn:
-            df = processing_fn(df)
-        dfs.append(df)
+        if os.path.getsize(csv_file) > 0:
+            df = pl.read_csv(csv_file)
+            if processing_fn:
+                df = processing_fn(df)
+            dfs.append(df)
     return pl.concat(dfs)
 
 
