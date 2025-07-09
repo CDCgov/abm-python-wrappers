@@ -873,7 +873,7 @@ class Experiment:
         # Otherwise attempt reading nested CSVs
         else:
             # Pre-proceesing fn is applied piece-wise to CSV
-            data = utils.read_nested_csvs(
+            data: pl.DataFrame = utils.read_nested_csvs(
                 input_dir, filename, data_processing_fn
             )
 
@@ -882,7 +882,9 @@ class Experiment:
             if partition_by is not None:
                 os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
                 data.write_parquet(
-                    f"/{input_dir}/{out_file}/", partition_by=partition_by
+                    f"/{input_dir}/{out_file}/",
+                    use_pyarrow=True,
+                    pyarrow_options={"partition_cols": partition_by},
                 )
             else:
                 data.write_csv(f"{input_dir}/{out_file}.csv")
