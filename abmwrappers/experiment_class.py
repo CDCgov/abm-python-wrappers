@@ -836,7 +836,7 @@ class Experiment:
         self,
         filename: str = None,
         input_dir: str = None,
-        preprocessing_fn: str = None,
+        data_processing_fn: str = None,
         write: bool = False,
         partition_by: list = None,
     ) -> pl.DataFrame:
@@ -848,7 +848,7 @@ class Experiment:
         Args:
             :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
             :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
-            :param preprocessing_fn: A function to preprocess the data before combining it withh other data during reading from CSV. If specified with a partitioned parquet file, the function If not specified, defaults to None
+            :param data_processing_fn: A function to preprocess the data before combining it withh other data during reading from CSV. If specified with a partitioned parquet file, the function If not specified, defaults to None
             :param store: Whether to store the data in the input directory as a parquet or CSV file. If True, the data is stored as a partitioned parquet file with the name of the file without extension or is stored as a CSV at the input directory root.
             :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
         """
@@ -864,17 +864,17 @@ class Experiment:
         ):
             # Special case for names in "products"
             data = self.parquet_from_path(f"{input_dir}/{filename}/")
-            if preprocessing_fn is not None:
+            if data_processing_fn is not None:
                 warnings.warn(
                     "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
                     UserWarning,
                 )
-                data = preprocessing_fn(data)
+                data = data_processing_fn(data)
         # Otherwise attempt reading nested CSVs
         else:
             # Pre-proceesing fn is applied piece-wise to CSV
             data = utils.read_nested_csvs(
-                input_dir, filename, preprocessing_fn
+                input_dir, filename, data_processing_fn
             )
 
         if write is not None:

@@ -103,19 +103,36 @@ def download_outputs(
 
 def run_step_return_data(
     experiment: Experiment,
-    data_processing_fn: Callable,
+    data_preprocessing_fn: Callable,
+    data_postprocessing_fn: Callable = None,
     products: list = None,
 ) -> pl.DataFrame:
+    """
+    Function to run a step in an experiment and return the resulting data frame.
+    This function is a wrapper around the `run_step` method of the Experiment class.
+
+    Args:
+        :param experiment (Experiment): The Experiment instance to run the step on.
+        :param data_preprocessing_fn (Callable): Function to preprocess data from an output directory path while running the step.
+            - This function should accept a single argument, which is the raw output directory path of the step.
+            - Once inside the raw ouptut directory, relevant paths should at least be read and should return a single data frame
+        :param data_postprocessing_fn (Callable, optional): Function to postprocess data further after running the simulations from the step. Optional.
+            - This function can operate on the whole collection of simulations simultaneouesly, accepting only a pl.DataFrame
+            - The functionality can instead be included in the pre-processing funciton, before the data is fully stored
+        :param products (list, optional): List of products to generate during the step. Defaults to ["simulations"].
+    """
     if products is None:
         products = ["simulations"]
 
     # Run the simulation
     experiment.run_step(
-        data_processing_fn=data_processing_fn,
+        data_processing_fn=data_preprocessing_fn,
         products=products,
     )
 
-    simulation_data_frame = experiment.read_results()
+    simulation_data_frame = experiment.read_results(
+        data_processing_fn=data_postprocessing_fn
+    )
     return simulation_data_frame
 
 

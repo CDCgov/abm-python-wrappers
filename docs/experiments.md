@@ -131,6 +131,120 @@ Retrieves a simulation bundle based on its index.
 
 ---
 
+### Method: `run_index`
+
+#### Description
+The `run_index` method is responsible for executing a single simulation based on a given index and processing its outputs. It validates input parameters, generates input files, executes the simulation, processes the raw outputs, and optionally saves or cleans intermediate results.
+
+#### Parameters
+- **`simulation_index`** (`int`): Index of the simulation to execute.
+- **`distance_fn`** (`Callable`, optional): Function to calculate distances between target data and results.
+- **`data_processing_fn`** (`Callable`, required): Function to process raw simulation outputs.
+- **`products`** (`list`, optional): List of products to generate (e.g., `["simulations", "distances"]`).
+- **`products_output_dir`** (`str`, optional): Directory to store output products. Defaults to the experiment's data path.
+- **`scenario_key`** (`str`, optional): Key to access specific scenario parameters.
+- **`cmd`** (`str`, optional): Command to execute the simulation. Defaults to a generated command if not provided.
+- **`save`** (`bool`, optional): Whether to save processed results. Defaults to `True`.
+- **`clean`** (`bool`, optional): Whether to clean intermediate raw output files. Defaults to `False`.
+
+#### Behavior
+1. Validates input parameters, ensuring required functions are provided.
+2. Generates input files for the simulation using `write_inputs`.
+3. Executes the simulation using a command-line utility.
+4. Processes raw outputs using the provided `data_processing_fn`.
+5. Updates the `results` attribute of the corresponding `SimulationBundle`.
+6. Saves processed products if `save` is `True`.
+7. Cleans raw output files if `clean` is `True`.
+
+---
+
+### Method: `run_step`
+
+#### Description
+The `run_step` method orchestrates the execution of multiple simulations for a specific step in the experiment's history. It ensures all simulations in the step are executed and their results are processed. . It defaults to the current step if none is provided and initializes a new simulation bundle if necessary. For each simulation index within the step, it calls `run_index` to execute and process the simulation, ensuring that all results are generated and stored as specified.
+
+#### Parameters
+- **`data_processing_fn`** (`Callable`, required): Function to process raw simulation outputs.
+- **`distance_fn`** (`Callable`, optional): Function to calculate distances between target data and results.
+- **`products`** (`list`, optional): List of products to generate (e.g., `["simulations"]`).
+- **`step`** (`int`, optional): Step in the experiment history to execute. Defaults to the current step.
+- **`products_output_dir`** (`str`, optional): Directory to store output products. Defaults to the experiment's data path.
+- **`scenario_key`** (`str`, optional): Key to access specific scenario parameters.
+
+#### Behavior
+1. Determines the step to execute, defaulting to the current step.
+2. Initializes a simulation bundle if the step does not exist.
+3. Iterates through simulation indices in the step and calls `run_index` for each.
+
+---
+
+### Method: `parquet_from_path`
+
+#### Description
+Reads Parquet files from a specified path. Supports reading from local storage or Azure blob containers.
+
+#### Parameters
+- **`path`** (`str`): Path to the Parquet file.
+
+#### Returns
+- **`pl.DataFrame`**: DataFrame containing the contents of the Parquet file.
+
+---
+
+### Method: `store_products`
+
+#### Description
+Stores processed simulation outputs (e.g., distances and simulations) as Parquet files in the specified output directory. This ensures that the data is stored in a structured and accessible format from parallelized write and run tasks.
+
+### Parameters
+- **`sim_indeces`** (`list`): List of simulation indices to store.
+- **`distance_fn`** (`Callable`, optional): Function to calculate distances. Required if storing distances.
+- **`products`** (`list`, optional): List of products to store (e.g., `["distances", "simulations"]`).
+- **`products_output_dir`** (`str`, optional): Directory to store output products. Defaults to the experiment's data path.
+
+#### Behavior
+1. Validates input parameters, ensuring required functions are provided.
+2. Writes distances and simulation results to Parquet files, organizing them by simulation index.
+
+---
+
+### Method: `read_distances`
+
+#### Description
+Reads distance data from storage and integrates it into the simulation bundle's history. It validates the presence of distance data and ensures that the current step does not already contain distances before updating the bundle.
+
+### Parameters
+- **`input_dir`** (`str`, optional): Directory to read distance data from. Defaults to the experiment's data path.
+
+#### Behavior
+1. Reads distance data from Parquet files.
+2. Validates that the current step does not already contain distances.
+3. Updates the `distances` attribute of the current step's `SimulationBundle`.
+
+---
+
+### Method: `read_results`
+
+#### Description
+Reads simulation results from storage, supporting both nested CSV files and hive-partitioned Parquet files. It allows for optional preprocessing of the data and supports writing the results back to storage in either format.
+
+#### Parameters
+- **`filename`** (`str`, optional): Name of the file to read. Defaults to `"simulations"`.
+- **`input_dir`** (`str`, optional): Directory to read the file from. Defaults to the experiment's data path.
+- **`preprocessing_fn`** (`Callable`, optional): Function to preprocess the data during reading.
+- **`write`** (`bool`, optional): Whether to write the data back to storage. Defaults to `False`.
+- **`partition_by`** (`list`, optional): Columns to partition the data by when writing as a Parquet file.
+
+#### Returns
+- **`pl.DataFrame`**: DataFrame containing the simulation results.
+
+#### Behavior
+1. Reads results from hive-partitioned Parquet files or nested CSV files.
+2. Applies preprocessing if specified.
+3. Optionally writes the data back to storage in Parquet or CSV format.
+
+---
+
 ### Dependencies
 
 The `Experiment` class relies on the following libraries and modules:
