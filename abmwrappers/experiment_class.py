@@ -691,7 +691,7 @@ class Experiment:
         index_dict = {
             simulation_index: data_processing_fn(simulation_output_path)
         }
-        if sim_bundle.__hasattr__("results"):
+        if hasattr(sim_bundle, "results"):
             sim_bundle.results.update(index_dict)
         else:
             sim_bundle.results = index_dict
