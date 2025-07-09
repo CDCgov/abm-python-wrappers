@@ -189,7 +189,6 @@ def column_keys_from_path(path: str) -> dict:
         d = {}
         if key_name in path_segment:
             vals = digit_from_string(path_segment)
-            print(vals)
             if len(vals) == 1:
                 d.update({key_name: vals[0]})
             elif len(vals) > 1:
@@ -610,6 +609,7 @@ def read_nested_csvs(
         # Get the scenario and simulation keys of the path, if present.
         col_name_dict = column_keys_from_path(csv_file)
         col_keys = pl.DataFrame(col_name_dict)
+        print(col_keys)
 
         # If the specified csv is not empty, read and process
         if os.path.getsize(csv_file) > 0:
