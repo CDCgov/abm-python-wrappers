@@ -13,7 +13,7 @@ import yaml
 from abctools import abc_methods
 from abctools.abc_classes import SimulationBundle
 
-from abmwrappers import utils, wrappers
+from abmwrappers import utils
 
 
 class Experiment:
@@ -620,11 +620,103 @@ class Experiment:
             )
         return self.simulation_bundles[step_id]
 
+    def run_index(
+        self,
+        simulation_index: int,
+        distance_fn: Callable = None,
+        data_processing_fn: Callable = None,
+        products: list = None,
+        products_output_dir: str = None,
+        scenario_key: str = None,
+        cmd: str = None,
+        save: bool = True,
+        clean: bool = False,
+    ):
+        """
+        Function that writes input files for the executeable from a valid simulation index in the SimulationBundle history
+        The executeable is then called and products from the outputs of the model are returned
+
+        Args:
+            :param simulation_index: integer index of a viable simulation from the cumulative simulation runs across SimulationBundle objects in the experiment history
+            :param distance_fn: Distance function supplied that accepts target data and results data
+            :param data_processing_fn: Post-processing function to be applied on raw_outputs
+            :param products: products parquet files to be created from the post-processing of raw output results,
+                Currently implemented values are `["simulations", "distances"]` for the results and distances attribute of SimulationBundles, respectively
+            :param products_output_dir: Output directory path, defaults to the Experiment data.path,
+            :param scenario_key: Scenario key used to access parameters when combining dictionaries,
+            :param cmd: Command to execute the model .If None, the default command for the model type is run,
+            :param clean: Argument to remove the raw_output folders of the data directory after the simulation is run. Default false
+        """
+        if clean and not save:
+            raise ValueError(
+                "Cannot clean raw output without saving the simulation results."
+            )
+        if products is None:
+            products = ["distances", "simulations"]
+
+        if data_processing_fn is None:
+            raise ValueError(
+                "Data processing function must be provided if not previously declared in Experiment parameters."
+            )
+
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+        elif self.scenario_key is not None:
+            warnings.warn(
+                f"Overwriting scenario key {self.scenario_key} with {scenario_key}"
+            )
+            self.scenario_key = scenario_key
+
+        input_file_path = self.write_inputs(
+            simulation_index,
+            scenario_key=scenario_key,
+        )
+        simulation_output_path = os.path.join(
+            self.data_path, "raw_output", f"simulation_{simulation_index}"
+        )
+        os.makedirs(simulation_output_path, exist_ok=True)
+
+        # This will require the default command line for model run if None
+        if cmd is None:
+            cmd = utils.write_default_cmd(
+                input_file=input_file_path,
+                output_dir=simulation_output_path,
+                exe_file=self.exe_file,
+                model_type=self.model_type,
+            )
+
+        utils.run_model_command_line(cmd, model_type=self.model_type)
+
+        sim_bundle: SimulationBundle = self.bundle_from_index(simulation_index)
+        index_dict = {
+            simulation_index: data_processing_fn(simulation_output_path)
+        }
+        if sim_bundle.__hasattr__("results"):
+            sim_bundle.results.update(index_dict)
+        else:
+            sim_bundle.results = index_dict
+
+        if save:
+            self.store_products(
+                sim_indeces=[simulation_index],
+                distance_fn=distance_fn,
+                products=products,
+                products_output_dir=products_output_dir,
+            )
+
+        if clean:
+            # Delete raw_output file if cleaning intermediates
+            for file in os.listdir(simulation_output_path):
+                os.remove(os.path.join(simulation_output_path, file))
+
     def run_step(
         self,
         data_processing_fn: Callable,
+        distance_fn: Callable = None,
         products: list = None,
         step: int = None,
+        products_output_dir: str = None,
+        scenario_key: str = None,
     ):
         """
         Function to run the simulations for a particular step in the experiment history, which defaults to the current step
@@ -637,6 +729,8 @@ class Experiment:
         """
         if products is None:
             products = ["simulations"]
+        if products_output_dir is None:
+            products_output_dir = self.data_path
 
         if step is None:
             step = self.current_step
@@ -649,11 +743,13 @@ class Experiment:
 
         # Run the simulation
         for index in simbundle.inputs["simulation"]:
-            wrappers.products_from_index(
-                index,
-                experiment=self,
+            self.run_index(
+                simulation_index=index,
+                distance_fn=distance_fn,
                 data_processing_fn=data_processing_fn,
                 products=products,
+                products_output_dir=products_output_dir,
+                scenario_key=scenario_key,
             )
 
     # --------------------------------------------
@@ -669,7 +765,51 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
-    def store_distances(self, input_dir: str = None):
+    def store_products(
+        self,
+        sim_indeces: list,
+        distance_fn: Callable = None,
+        products: list = None,
+        products_output_dir: str = None,
+    ):
+        if products_output_dir is None:
+            output_dir = self.data_path
+        else:
+            output_dir = products_output_dir
+
+        for simulation_index in sim_indeces:
+            sim_bundle = self.bundle_from_index(simulation_index)
+
+            if "distances" in products:
+                if distance_fn is None:
+                    raise ValueError(
+                        "Distance function must be provided if not previously declared in Experiment parameters."
+                    )
+
+                    sim_bundle.calculate_distances(
+                        self.target_data, distance_fn
+                    )
+
+                    distance_data_part_path = f"{output_dir}/distances/simulation={simulation_index}/"
+
+                    # Write the distance data to a Parquet file with part path storing the simulation column
+                    os.makedirs(distance_data_part_path, exist_ok=True)
+                    pl.DataFrame(
+                        {"distance": sim_bundle.distances[simulation_index]}
+                    ).write_parquet(distance_data_part_path + "data.parquet")
+
+            if "simulations" in products:
+                simulation_data_part_path = (
+                    f"{output_dir}/simulations/simulation={simulation_index}/"
+                )
+
+                # Write the simulation data to a Parquet file with part path storing the simulation column
+                os.makedirs(simulation_data_part_path, exist_ok=True)
+                sim_bundle.results[simulation_index].write_parquet(
+                    simulation_data_part_path + "data.parquet"
+                )
+
+    def read_distances(self, input_dir: str = None):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory

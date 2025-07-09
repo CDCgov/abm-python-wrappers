@@ -101,111 +101,7 @@ def download_outputs(
 # --------------------------
 
 
-def products_from_index(
-    simulation_index: int,
-    experiment: Experiment,
-    distance_fn: Callable = None,
-    data_processing_fn: Callable = None,
-    products: list = None,
-    products_output_dir: str = None,
-    scenario_key: str = None,
-    cmd: str = None,
-    clean: bool = False,
-):
-    """
-    Function that writes input files for the executeable from a valid simulation index in the SimulationBundle history
-    The executeable is then called and products from the outputs of the model are returned
-
-    Args:
-        :param simulation_index: integer index of a viable simulation from the cumulative simulation runs across SimulationBundle objects in the experiment history
-        :param experiment: Experiment object
-        :param distance_fn: Distance function supplied that accepts target data and results data
-        :param data_processing_fn: Post-processing function to be applied on raw_outputs
-        :param products: products parquet files to be created from the post-processing of raw output results,
-            Currently implemented values are `["simulations", "distances"]` for the results and distances attribute of SimulationBundles, respectively
-        :param products_output_dir: Output directory path, defaults to the Experiment data.path,
-        :param scenario_key: Scenario key used to access parameters when combining dictionaries,
-        :param cmd: Command to execute the model .If None, the default command for the model type is run,
-        :param clean: Argument to remove the raw_output folders of the data directory after the simulation is run. Default false
-    """
-    if products is None:
-        products = ["distances", "simulations"]
-
-    if data_processing_fn is None:
-        raise ValueError(
-            "Data processing function must be provided if not previously declared in Experiment parameters."
-        )
-
-    input_file_path = experiment.write_inputs(
-        simulation_index,
-        scenario_key=scenario_key,
-    )
-    simulation_output_path = os.path.join(
-        experiment.data_path, "raw_output", f"simulation_{simulation_index}"
-    )
-    os.makedirs(simulation_output_path, exist_ok=True)
-
-    # This will require the default command line for model run if None
-    if cmd is None:
-        cmd = utils.write_default_cmd(
-            input_file=input_file_path,
-            output_dir=simulation_output_path,
-            exe_file=experiment.exe_file,
-            model_type=experiment.model_type,
-        )
-
-    utils.run_model_command_line(cmd, model_type=experiment.model_type)
-
-    sim_bundle = experiment.bundle_from_index(simulation_index)
-
-    sim_bundle.results = {
-        simulation_index: data_processing_fn(simulation_output_path)
-    }
-
-    # --------------------------
-    # Process the and store the desired products
-    # --------------------------
-    if products_output_dir is None:
-        output_dir = experiment.data_path
-    else:
-        output_dir = products_output_dir
-
-    if "distances" in products:
-        if distance_fn is None:
-            raise ValueError(
-                "Distance function must be provided if not previously declared in Experiment parameters."
-            )
-
-        sim_bundle.calculate_distances(experiment.target_data, distance_fn)
-
-        distance_data_part_path = (
-            f"{output_dir}/distances/simulation={simulation_index}/"
-        )
-
-        # Write the distance data to a Parquet file with part path storing the simulation column
-        os.makedirs(distance_data_part_path, exist_ok=True)
-        pl.DataFrame(
-            {"distance": sim_bundle.distances.values()}
-        ).write_parquet(distance_data_part_path + "data.parquet")
-
-    if "simulations" in products:
-        simulation_data_part_path = (
-            f"{output_dir}/simulations/simulation={simulation_index}/"
-        )
-
-        # Write the simulation data to a Parquet file with part path storing the simulation column
-        os.makedirs(simulation_data_part_path, exist_ok=True)
-        sim_bundle.results[simulation_index].write_parquet(
-            simulation_data_part_path + "data.parquet"
-        )
-
-    if clean:
-        # Delete raw_output file if cleaning intermediates
-        for file in os.listdir(simulation_output_path):
-            os.remove(os.path.join(simulation_output_path, file))
-
-
-def create_simulation_data(
+def run_step_return_data(
     experiment: Experiment,
     data_processing_fn: Callable,
     products: list = None,
@@ -213,22 +109,13 @@ def create_simulation_data(
     if products is None:
         products = ["simulations"]
 
-    # Generate products from current step if it exists or initialize
-    if experiment.current_step is not None:
-        simbundle = experiment.simulation_bundles[experiment.current_step]
-    else:
-        simbundle = experiment.initialize_simbundle()
-
     # Run the simulation
-    for index in simbundle.inputs["simulation"]:
-        products_from_index(
-            index,
-            experiment=experiment,
-            data_processing_fn=data_processing_fn,
-            products=products,
-        )
-    parquet_path = os.path.join(experiment.data_path, "simulations")
-    simulation_data_frame = experiment.parquet_from_path(parquet_path)
+    experiment.run_step(
+        data_processing_fn=data_processing_fn,
+        products=products,
+    )
+
+    simulation_data_frame = experiment.read_results()
     return simulation_data_frame
 
 
@@ -383,7 +270,6 @@ def run_abcsmc(
 
             task_range = tuple(tasks_id_range)
             gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
-            print(gather_task_cmd)
 
             gather_task_id = client.add_task(
                 job_id=job_name,
@@ -405,9 +291,6 @@ def run_abcsmc(
                 f"Running step {step} of {len(experiment.tolerance_dict)} with tolerance {tolerance}"
             )
 
-            current_bundle = experiment.simulation_bundles[
-                experiment.current_step
-            ]
             if step != experiment.current_step:
                 raise ValueError(
                     f"Execution has become misaligned from updating. Step {step} does not match current step {experiment.current_step}"
@@ -418,15 +301,12 @@ def run_abcsmc(
             else:
                 products = ["distances"]
 
-            for simulation_index in current_bundle.inputs["simulation"]:
-                products_from_index(
-                    simulation_index,
-                    experiment=experiment,
-                    data_processing_fn=data_processing_fn,
-                    distance_fn=distance_fn,
-                    products=products,
-                    scenario_key=scenario_key,
-                )
+            experiment.run_step(
+                data_processing_fn=data_processing_fn,
+                distance_fn=distance_fn,
+                products=products,
+                scenario_key=scenario_key,
+            )
 
             # Products_from_index currently adds only one distance at a time
             # We recreate the data loss of update_abcsmc_img here using `del`

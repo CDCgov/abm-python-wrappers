@@ -20,7 +20,7 @@ Processes simulation data and writes results to Parquet files. Handles distances
 
 ---
 
-### `create_simulation_data`
+### `run_step_return_data`
 
 #### Description
 Creates simulation data by running simulations and processing results. Writes simulation data to Parquet files.
@@ -80,7 +80,7 @@ Processes simulation data and writes results to Parquet files. Handles distances
 
 ---
 
-### `create_simulation_data`
+### `run_step_return_data`
 
 #### Description
 Creates simulation data by running simulations and processing results. Writes simulation data to Parquet files.
@@ -177,7 +177,7 @@ In many cases, we may just want to call one parameter set many times to produce 
 
 In order to initialize simulation bundle histroy for a new experiment, we can call the `experiment.intialize_simbundle()` method, which will automatically populate a `SimulationBundle` as the zeroeth simulation set of the `Experiment`.
 
-This is performed automatically by the wrapper function `create_simulation_data`, which first checks for any simulation bundle history and either calls the current step's inputs to create simulation data or creates the first bundle and then creates the data.
+This is performed automatically by the wrapper function `run_step_return_data`, which first checks for any simulation bundle history and either calls the current step's inputs to create simulation data or creates the first bundle and then creates the data.
 
 ```python
 def read_fn(outputs_dir):
@@ -194,7 +194,7 @@ experiment = Experiment(
     config_file = "path/to/config.yaml"
 )
 
-simulation_data = wrappers.create_simulation_data(
+simulation_data = wrappers.run_step_return_data(
     experiment,
     data_processing_fn=read_fn,
 )
@@ -232,7 +232,7 @@ for scenario in os.listdir(scenarios_dir):
         config_file=config_path,
     )
 
-    wrappers.create_simulation_data(
+    wrappers.run_step_return_data(
         experiment=subexperiment,
         data_processing_fn=read_fn
     )
@@ -251,7 +251,7 @@ experiment.save(
 )
 ```
 
-Within the for loop of the above example, it would be possible to provide any post processing on the products returned by `create_simulation_data`, or call other wrappers on the `subexperiment` objects, such as `run_abcsmc`, instead of only creating simulations.
+Within the for loop of the above example, it would be possible to provide any post processing on the products returned by `run_step_return_data`, or call other wrappers on the `subexperiment` objects, such as `run_abcsmc`, instead of only creating simulations.
 
 We end the example script by compressing the currently stored simulation bundles of each scenario and saving them to the overall experiment, so that they can be called from the upper directory. This is not necessary, but ensures all data is in the same place.
 
