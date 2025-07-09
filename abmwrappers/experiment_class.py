@@ -882,7 +882,7 @@ class Experiment:
             if partition_by is not None:
                 os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
                 data.write_parquet(
-                    f"/{input_dir}/{out_file}/",
+                    f"{input_dir}/{out_file}/",
                     use_pyarrow=True,
                     pyarrow_options={"partition_cols": partition_by},
                 )
