@@ -346,3 +346,139 @@ experiment.resample()
 # Save the updated experiment
 experiment.save(experiment_file)
 ```
+
+The simplest automated task to start running simulations is the `run_step` method,
+which can be called without any pre-processing or with optional arguments
+
+The default behavior of `run_step` requires at least a data preprocessing function
+that accepts a string directory path location of the raw outputs being generated and
+returns a `pl.DataFrame`
+
+For example,
+
+```python
+def my_reader_fn(output_dir: str):
+    fp = os.path.join(output_dir, "person_property_count.csv")
+    return pl.read_csv(fp)
+
+experiment = Experiment(
+        experiments_directory="tests",
+        config_file=config_file
+    )
+experiment.run_step(data_processing_fn=my_reader_fn)
+```
+
+This will automatically store your output file as a hive-partitioned parquet for easier
+file reading and processing, but setting `save = False` will not do so.
+
+If you would like to post-process the data or combine other files produced by a model,
+that can also be done quickly using `run_step`. Simply update the processing function.
+
+```python
+def my_complex_fn(output_dir: str):
+    """
+    Create a formatted data frame that returns the transmssion chain graph with extra information about current circulating infections
+    """
+    counts_fp = os.path.join(output_dir, "person_property_count.csv")
+    transmission_chain_fp = os.path.join(output_dir, "transmission_report.csv")
+
+    daily_infection_count = (
+        pl.read_csv(counts_fp)
+        .filter(pl.col("InfectionStatus") == "Infected")
+        .group_by("t")
+        .agg(pl.count())
+    )
+
+    # Join the daily
+    transmission_graph = (
+        pl.read_csv(transmission_chain_fp)
+        .with_columns(pl.col("t_infection").floor().alias("t"))
+    )
+
+    data = transmission_grpah.join(daily_infection_count, on = "t", how = "left")
+
+    return data
+
+experiment = Experiment(
+        experiments_directory="tests",
+        config_file=config_file
+    )
+experiment.run_step(data_processing_fn=my_complex_fn)
+```
+
+Now the compressed `simulations` folder will contain the already processed data.
+We can access that information for use in a python enviornment or extract it to a non-compressed CSV format
+using the `read_results` Experiment method.
+
+```python
+data = experiment.read_results()
+```
+
+will allow for manipulatable `data` using polars expressions
+
+```python
+data = experiment.read_results(write=True)
+```
+
+will return the same `simulations` data frame but will also write a non-compressed CSV file of the data
+in the root data directory
+
+```python
+data = experiment.read_results(write=True, partition_by=["simulation", "t"])
+```
+
+will return the same `simulations` data frame but will also write a compressed hive-partitioned Parquet
+file of the data in the root data directory if the data should be partitioned in a new way.
+
+In the case where raw output files are proudced but not needed by the data read in processing function,
+such as an unused transmission chain report in the case of `my_reader_fn`, we can later save the raw files
+in the same fashion as above by calling `read_results`
+
+```python
+def my_reader_fn(output_dir: str):
+    fp = os.path.join(output_dir, "person_property_count.csv")
+    return pl.read_csv(fp)
+
+experiment = Experiment(
+        experiments_directory="tests",
+        config_file=config_file
+    )
+experiment.run_step(data_processing_fn=my_reader_fn)
+
+chains = experiment.read_results(filename="transmission_report")
+```
+
+The transmission chains will now be accessed. The methods described above with the default of
+`simulations` can also be used to store the transmission report permanently.
+
+If we want to postpprcoess the transmission chain reports after they have been written but
+before writing a new stored file, we can supply a new function that takes in a data frame
+and returns a simplified one.
+
+```python
+def my_postprocessing_fn(chain_data: pl.DataFrame) -> pl.DataFrame:
+    """
+    Create a formatted data frame that returns the simplified transmssion chain graph
+    """
+    # Join the daily
+    transmission_graph = (
+        data
+        .filter((pl.col("t") > 2.0) & (pl.col("t") < 10.0))
+        .with_columns(pl.col("t_infection").floor().alias("t"))
+    )
+    return transmission_graph
+
+chains = experiment.read_results(
+    filename="transmission_report",
+    data_processing_fn=my_postprocessing_fn,
+    write = True,
+    partition_by = ["t"]
+)
+```
+
+the transmission chain report is now saved in the appropriate directory and can be accessed
+later using only the parquet style read function
+
+```python
+processed_chains = experiment.read_results(filename="transmission_report")
+```
