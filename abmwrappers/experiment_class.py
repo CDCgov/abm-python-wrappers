@@ -681,62 +681,6 @@ class Experiment:
     # Input parameter handling
     # --------------------------------------------
 
-    def write_inputs_index(
-        self,
-        simulation_index: int,
-        scenario_key: str | None = None,
-    ) -> str:
-        """
-        Write a single simulation's input file
-        :param simulation_index: The index of the simulation to write
-        :param write_inputs_cmd: The command to run that sources outside code to transform
-            a base yaml file into readable inputs for execution
-            A default of None will return only the formatted inputs from the simulation bundle
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
-
-        In general, self.directory/data/input for simulation input files
-        Use a tmp space for files that are intermediate products
-        """
-
-        sim_bundle = self.bundle_from_index(simulation_index)
-
-        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
-
-        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        input_dict[simulation_index]["seed"] = input_dict[
-            simulation_index
-        ].pop("randomSeed")
-
-        # If scenario key is not specified, use the default scenario key
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-
-        simulation_params, _summary_string = utils.combine_params_dicts(
-            sim_bundle._baseline_params,
-            input_dict[simulation_index],
-            scenario_key=scenario_key,
-        )
-
-        input_dir = os.path.join(self.data_path, "input")
-        os.makedirs(input_dir, exist_ok=True)
-
-        input_file_name = (
-            f"simulation_{simulation_index}.{self.input_file_type}"
-        )
-
-        if self.verbose and simulation_index % self.n_simulations == 0:
-            print(
-                "Writing exe file inputs across the SimulationBundle indices"
-            )
-        formatted_inputs = utils.abm_parameters_writer(
-            params=simulation_params,
-            output_type=self.input_file_type,
-            unflatten=True,
-        )
-        with open(os.path.join(input_dir, input_file_name), "w") as f:
-            f.write(formatted_inputs)
-        return os.path.join(input_dir, input_file_name)
-
     def get_default_params(self, step: int = None) -> dict:
         """
         Get the baseline parameters for a specific step in the experiment history.
@@ -792,6 +736,62 @@ class Experiment:
             inputs = pl.concat(inputs_list).sort("simulation")
 
         return inputs
+
+    def write_inputs_index(
+        self,
+        simulation_index: int,
+        scenario_key: str | None = None,
+    ) -> str:
+        """
+        Write a single simulation's input file
+        :param simulation_index: The index of the simulation to write
+        :param write_inputs_cmd: The command to run that sources outside code to transform
+            a base yaml file into readable inputs for execution
+            A default of None will return only the formatted inputs from the simulation bundle
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+
+        In general, self.directory/data/input for simulation input files
+        Use a tmp space for files that are intermediate products
+        """
+
+        sim_bundle = self.bundle_from_index(simulation_index)
+
+        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
+
+        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
+        input_dict[simulation_index]["seed"] = input_dict[
+            simulation_index
+        ].pop("randomSeed")
+
+        # If scenario key is not specified, use the default scenario key
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+
+        simulation_params, _summary_string = utils.combine_params_dicts(
+            sim_bundle._baseline_params,
+            input_dict[simulation_index],
+            scenario_key=scenario_key,
+        )
+
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+
+        input_file_name = (
+            f"simulation_{simulation_index}.{self.input_file_type}"
+        )
+
+        if self.verbose and simulation_index % self.n_simulations == 0:
+            print(
+                "Writing exe file inputs across the SimulationBundle indices"
+            )
+        formatted_inputs = utils.abm_parameters_writer(
+            params=simulation_params,
+            output_type=self.input_file_type,
+            unflatten=True,
+        )
+        with open(os.path.join(input_dir, input_file_name), "w") as f:
+            f.write(formatted_inputs)
+        return os.path.join(input_dir, input_file_name)
 
     def write_inputs_from_griddle(
         self,
