@@ -149,7 +149,7 @@ The `run_index` method is responsible for executing a single simulation based on
 
 #### Behavior
 1. Validates input parameters, ensuring required functions are provided.
-2. Generates input files for the simulation using `write_inputs`.
+2. Generates input files for the simulation using `write_inputs_index`.
 3. Executes the simulation using a command-line utility.
 4. Processes raw outputs using the provided `data_processing_fn`.
 5. Updates the `results` attribute of the corresponding `SimulationBundle`.

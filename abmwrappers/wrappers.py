@@ -101,37 +101,53 @@ def download_outputs(
 # --------------------------
 
 
-def run_step_return_data(
+def run_step_return_sims(
     experiment: Experiment,
-    data_preprocessing_fn: Callable,
-    data_postprocessing_fn: Callable = None,
-    products: list = None,
+    data_read_fn: Callable[[str], pl.DataFrame] | None = None,
+    raw_data_filename: str | None = None,
+    distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+    | None = None,
+    data_postprocessing_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+    | None = None,
+    products: list | None = None,
+    compress: bool = True,
+    clean: bool = False,
+    overwrite: bool = False,
 ) -> pl.DataFrame:
     """
-    Function to run a step in an experiment and return the resulting data frame.
-    This function is a wrapper around the `run_step` method of the Experiment class.
+    Function to run a step in an experiment and return the resulting simulations.
+    This function is a wrapper around the `run_step` and `read_results` methods of the Experiment class as a common use-case.
 
     Args:
         :param experiment (Experiment): The Experiment instance to run the step on.
-        :param data_preprocessing_fn (Callable): Function to preprocess data from an output directory path while running the step.
+        :param data_read_fn (Callable): Function to read data from a raw output file into a polars DataFrame.
+            - This function is created as a default to read a single file if raw_data_filename is specified
             - This function should accept a single argument, which is the raw output directory path of the step.
             - Once inside the raw ouptut directory, relevant paths should at least be read and should return a single data frame
         :param data_postprocessing_fn (Callable, optional): Function to postprocess data further after running the simulations from the step. Optional.
             - This function can operate on the whole collection of simulations simultaneouesly, accepting only a pl.DataFrame
             - The functionality can instead be included in the pre-processing funciton, before the data is fully stored
         :param products (list, optional): List of products to generate during the step. Defaults to ["simulations"].
+        :param compress (bool, optional): Whether to compress the results. Defaults to True.
+        :param clean (bool, optional): Whether to clean up the raw output directory after running the step. Defaults to False.
+        :param overwrite (bool, optional): Whether to overwrite existing hive-paritioned parquert file once results are postprocessed. Defaults to False.
     """
-    if products is None:
-        products = ["simulations"]
 
     # Run the simulation
     experiment.run_step(
-        data_processing_fn=data_preprocessing_fn,
+        data_read_fn=data_read_fn,
+        data_filename=raw_data_filename,
+        distance_fn=distance_fn,
         products=products,
+        compress=compress,
+        clean=clean,
     )
 
     simulation_data_frame = experiment.read_results(
-        data_processing_fn=data_postprocessing_fn
+        filename="simulations",
+        data_processing_fn=data_postprocessing_fn,
+        write=(compress and overwrite),
+        partition_by=["simulation"],
     )
     return simulation_data_frame
 

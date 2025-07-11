@@ -6,20 +6,6 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ## Functions
 
-### `products_from_index`
-
-#### Description
-Processes simulation data and writes results to Parquet files. Handles distances, simulations, and intermediate cleaning.
-
-#### Parameters:
-- `simulation_index` (`int`): Index of the simulation to process.
-- `experiment` (`Experiment`): The experiment object containing simulation data.
-- `data_processing_fn` (`Callable`): Function for processing simulation data.
-- `products` (`list`, optional): List of products to generate. Defaults to `["distances", "simulations"]`.
-- `clean` (`bool`, optional): Whether to clean intermediate files. Defaults to `False`.
-
----
-
 ### `run_step_return_data`
 
 #### Description
@@ -64,50 +50,6 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ---
 
-## Functions
-
-### `products_from_index`
-
-#### Description
-Processes simulation data and writes results to Parquet files. Handles distances, simulations, and intermediate cleaning.
-
-#### Parameters:
-- `simulation_index` (`int`): Index of the simulation to process.
-- `experiment` (`Experiment`): The experiment object containing simulation data.
-- `data_processing_fn` (`Callable`): Function for processing simulation data.
-- `products` (`list`, optional): List of products to generate. Defaults to `["distances", "simulations"]`.
-- `clean` (`bool`, optional): Whether to clean intermediate files. Defaults to `False`.
-
----
-
-### `run_step_return_data`
-
-#### Description
-Creates simulation data by running simulations and processing results. Writes simulation data to Parquet files.
-
-#### Parameters:
-- `experiment` (`Experiment`): The experiment object containing simulation data.
-- `data_processing_fn` (`Callable`): Function for processing simulation data.
-- `products` (`list`, optional): List of products to generate. Defaults to `["simulations"]`.
-
-#### Returns:
-- `polars.DataFrame`: DataFrame containing simulation results.
-
----
-
-### `update_abcsmc_img`
-
-#### Description
-Updates a compressed experiment file with distance data stored as a Parquet Hive partition. Used during the gather step of ABC SMC workflows.
-
-#### Parameters:
-- `experiment_file` (`str`): Path to the compressed experiment file.
-- `products_path` (`str`): Path to the directory containing product data.
-
-#### Returns:
-- `None`
-
----
 ### `run_abcsmc`
 
 #### Description
@@ -200,10 +142,10 @@ simulation_data = wrappers.run_step_return_data(
 )
 ```
 
-Simulations will now be stored as a hive partitioned `.parquet` file and nested as raw output `.csv` files in the outputs directory, which is automatically selected from the experiment's `.data_path`. The funciton returns the simulations as a `pl.DataFrame` for convenience if we want to do further analysis within the same script.
+Simulations will now be stored as a hive partitioned `.parquet` file and nested as raw output `.csv` files in the outputs directory, which is automatically selected from the experiment's `.data_path` using the `experiment.run_step()` method. The function returns the simulations as a `pl.DataFrame` for convenience if we want to do further analysis within the same script.
 
 ### Scenarios
-This package provides simple file management for taking one `Experiment` and splitting it into scenarios using pygriddler. For a single workflow, an `Experiment` provides the `write_inputs` function to wrtie out the relevant input files for executing ABM simulations. To handle multiple scenario worfklows, the `Experiment` class instead provides `write_inputs_from_griddle`, which requires an associated `griddle_file` in the `Experiment` config file or one to be sourced manually freom a path to a valid griddler raw input file.
+This package provides simple file management for taking one `Experiment` and splitting it into scenarios using pygriddler. For a single workflow, an `Experiment` provides the `write_inputs_index` function to wrtie out the relevant input files for executing ABM simulations. To handle multiple scenario worfklows, the `Experiment` class instead provides `write_inputs_from_griddle`, which requires an associated `griddle_file` in the `Experiment` config file or one to be sourced manually freom a path to a valid griddler raw input file.
 
 This experiment method is called by the wrapper `create_scenario_subexperiments`, which makes a new `scenarios` folder in the `experiment.directory` path. Each scenario has an associated experiments folder that is at the original `experiment.directory` level. There are convenient hooks in the `write_scenario_products` wrapper to extract products created in these scenario folders back up to the top-level experiment directory.
 

@@ -522,6 +522,361 @@ class Experiment:
                     shutil.rmtree(item_path)
 
     # --------------------------------------------
+    # File management
+    # --------------------------------------------
+
+    def parquet_from_path(self, path: str) -> pl.DataFrame:
+        if self.azure_batch:
+            df = utils.read_parquet_blob(
+                self.blob_container_name, path, self.storage_config, self.cred
+            )
+        else:
+            df = pl.scan_parquet(path).collect()
+        return df
+
+    def store_products(
+        self,
+        sim_indeces: list,
+        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int],
+        products: list | None = None,
+        products_output_dir: str | None = None,
+    ):
+        if products_output_dir is None:
+            output_dir = self.data_path
+        else:
+            output_dir = products_output_dir
+
+        for simulation_index in sim_indeces:
+            sim_bundle = self.bundle_from_index(simulation_index)
+
+            if "distances" in products:
+                sim_bundle.calculate_distances(self.target_data, distance_fn)
+
+                distance_data_part_path = (
+                    f"{output_dir}/distances/simulation={simulation_index}/"
+                )
+
+                # Write the distance data to a Parquet file with part path storing the simulation column
+                os.makedirs(distance_data_part_path, exist_ok=True)
+                pl.DataFrame(
+                    {"distance": sim_bundle.distances[simulation_index]}
+                ).write_parquet(distance_data_part_path + "data.parquet")
+
+            if "simulations" in products:
+                simulation_data_part_path = (
+                    f"{output_dir}/simulations/simulation={simulation_index}/"
+                )
+
+                # Write the simulation data to a Parquet file with part path storing the simulation column
+                os.makedirs(simulation_data_part_path, exist_ok=True)
+                sim_bundle.results[simulation_index].write_parquet(
+                    simulation_data_part_path + "data.parquet"
+                )
+            if "params" in products:
+                inputs_data_part_path = (
+                    f"{output_dir}/params/simulation={simulation_index}/"
+                )
+                sim_bundle.inputs[simulation_index].write_parquet(
+                    inputs_data_part_path + "data.parquet"
+                )
+
+    def read_distances(self, input_dir: str = None):
+        """
+        Read distances and simulation results into the simulation bundle history
+        Currently yields OSError when called on a mounted blob container input directory
+        """
+        if not input_dir:
+            input_dir = self.data_path
+
+        distances = self.parquet_from_path(f"{input_dir}/distances/")
+
+        if distances.is_empty():
+            raise ValueError("No distances found in the input directory.")
+
+        if hasattr(self.simulation_bundles[self.current_step], "distances"):
+            raise ValueError(
+                "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
+            )
+        self.simulation_bundles[self.current_step].distances = {}
+
+        for k, v in zip(distances["simulation"], distances["distance"]):
+            if self.step_from_index(k) == self.current_step:
+                self.simulation_bundles[self.current_step].distances[k] = v
+
+    def read_results(
+        self,
+        filename: str,
+        input_dir: str | None = None,
+        data_processing_fn: Callable[[pl.DataFrame], pl.DataFrame]
+        | None = None,
+        write: bool = False,
+        partition_by: list | None = None,
+    ) -> pl.DataFrame:
+        """
+        Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
+        The default behavior is to search for an already-extant parquet file folder name or summarized CSV at the root input data path
+        If neither summarized file is found, the function will attempt to read nested CSV files from the input directory
+
+        Args:
+            :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
+            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
+            :param data_processing_fn: A function to preprocess the data before combining it withh other data during reading from CSV.
+                - If specified with a partitioned parquet file, the function is called on the data set in aggregate.
+                - If called on a CSV file that was written by this method, the data processing function is skipped and the user is informed to run further post processing outside the read results method.
+                - If not specified, defaults to None
+            :param store: Whether to store the data in the input directory as a parquet or CSV file.
+                - If True, the data is stored as a partitioned parquet file with the name of the file without extension or is stored as a CSV at the input directory root.
+            :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
+        """
+        # Default to dat path and the simulations parquet file
+        if not input_dir:
+            input_dir = self.data_path
+
+        # Read from hive-paritioned parquet if it exists and filename is not a file
+        if os.path.exists(f"{input_dir}/{filename}"):
+            if len(filename.split(".")) == 1:
+                # Special case for names in "products"
+                data = self.parquet_from_path(f"{input_dir}/{filename}/")
+                if data_processing_fn is not None:
+                    warnings.warn(
+                        "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
+                        UserWarning,
+                    )
+                    data = data_processing_fn(data)
+            elif filename.endswith(".csv") or filename.endswith(".CSV"):
+                # Read from a summarized CSV file if it exists
+                data = pl.read_csv(f"{input_dir}/{filename}")
+                if data_processing_fn is not None:
+                    warnings.warn(
+                        "Skipping use of data processing function. "
+                        "The existing CSV file could only have been created by a previous read_results and would have been manipulated by a `data_processing_fn` already. "
+                        "If you would like to further process the data, please read the results and manipulate them manually outside the Experiment methods.",
+                        UserWarning,
+                    )
+            else:
+                raise ValueError(
+                    f"Filename {filename} to be read must be a CSV file or a hive-partitioned parquet folder if it already exists."
+                )
+        # Otherwise attempt reading nested CSVs
+        else:
+            # Pre-proceesing fn is applied piece-wise to CSV
+            data: pl.DataFrame = utils.read_nested_csvs(
+                input_dir, filename, data_processing_fn
+            )
+
+        if write:
+            out_file = filename.split(".")[0]
+            if partition_by is not None:
+                os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
+                data.write_parquet(
+                    f"{input_dir}/{out_file}/",
+                    use_pyarrow=True,
+                    pyarrow_options={"partition_cols": partition_by},
+                )
+            else:
+                data.write_csv(f"{input_dir}/{out_file}.csv")
+        return data
+
+    # --------------------------------------------
+    # Input parameter handling
+    # --------------------------------------------
+
+    def write_inputs_index(
+        self,
+        simulation_index: int,
+        scenario_key: str | None = None,
+    ) -> str:
+        """
+        Write a single simulation's input file
+        :param simulation_index: The index of the simulation to write
+        :param write_inputs_cmd: The command to run that sources outside code to transform
+            a base yaml file into readable inputs for execution
+            A default of None will return only the formatted inputs from the simulation bundle
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+
+        In general, self.directory/data/input for simulation input files
+        Use a tmp space for files that are intermediate products
+        """
+
+        sim_bundle = self.bundle_from_index(simulation_index)
+
+        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
+
+        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
+        input_dict[simulation_index]["seed"] = input_dict[
+            simulation_index
+        ].pop("randomSeed")
+
+        # If scenario key is not specified, use the default scenario key
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+
+        simulation_params, _summary_string = utils.combine_params_dicts(
+            sim_bundle._baseline_params,
+            input_dict[simulation_index],
+            scenario_key=scenario_key,
+        )
+
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+
+        input_file_name = (
+            f"simulation_{simulation_index}.{self.input_file_type}"
+        )
+
+        if self.verbose and simulation_index % self.n_simulations == 0:
+            print(
+                "Writing exe file inputs across the SimulationBundle indices"
+            )
+        formatted_inputs = utils.abm_parameters_writer(
+            params=simulation_params,
+            output_type=self.input_file_type,
+            unflatten=True,
+        )
+        with open(os.path.join(input_dir, input_file_name), "w") as f:
+            f.write(formatted_inputs)
+        return os.path.join(input_dir, input_file_name)
+
+    def get_default_params(self, step: int = None) -> dict:
+        """
+        Get the baseline parameters for a specific step in the experiment history.
+        If no step is specified, returns the baseline parameters for the current step.
+        """
+        if step is None:
+            step = self.current_step
+        if step is not None:
+            if step not in self.simulation_bundles:
+                raise ValueError(
+                    f"Step {step} does not exist in the simulation bundles."
+                )
+            return self.simulation_bundles[step].baseline_params[
+                self.scenario_key
+            ]
+        else:
+            baseline_params, _summary_string = utils.load_baseline_params(
+                self.default_params_file,
+                self.changed_baseline_params,
+                self.scenario_key,
+            )
+            return baseline_params[self.scenario_key]
+
+    def get_default_value(self, param: str, step: int | None = None):
+        """
+        Get the value of a specific parameter for a specific step in the experiment history.
+        If no step is specified, returns the value for the current step.
+        """
+        baseline_params = self.get_default_params(step)
+        if param not in baseline_params:
+            raise ValueError(
+                f"Parameter {param} not found in baseline parameters for step {step}."
+            )
+        return baseline_params[param]
+
+    def collect_inputs(
+        self, sim_indeces: list[int] | None = None
+    ) -> pl.DataFrame:
+        if os.path.exists(f"{self.data_path}/params/"):
+            if sim_indeces is None:
+                inputs = self.parquet_from_path(f"{self.data_path}/params/")
+            else:
+                inputs = (
+                    self.parquet_from_path(f"{self.data_path}/params/")
+                    .filter(pl.col("simulation").is_in(sim_indeces))
+                    .sort(pl.col("simulation"))
+                )
+        else:
+            inputs_list = []
+            for simulation_index in sim_indeces:
+                sim_bundle = self.bundle_from_index(simulation_index)
+                inputs_list.append(sim_bundle.inputs[simulation_index])
+            inputs = pl.concat(inputs_list).sort("simulation")
+
+        return inputs
+
+    def write_inputs_from_griddle(
+        self,
+        input_griddle: str = None,
+        scenario_key: str = None,
+        unflatten: bool = True,
+        seed_key: str = "seed",
+    ):
+        """
+        Write simulation inputs from a griddler parameter set
+        :param input_griddle: The path to the griddler parameter set
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+        :param unflatten: Whether to unflatten the parameter set or not
+        :return: None
+
+        This function will read the griddler parameter set and write the simulation inputs to the input directory
+        If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
+        """
+        if input_griddle is None:
+            if self.griddle_file is not None:
+                input_griddle = self.griddle_file
+            else:
+                raise ValueError(
+                    "No griddler parameter set specified. Please provide a griddler parameter set."
+                )
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+
+        # Load the parameter set
+        with open(input_griddle, "r") as f:
+            raw_griddle = json.load(f)
+
+        griddle = griddler.parse(raw_griddle)
+        par_sets = griddle.to_dicts()
+
+        ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
+        ## Change to combine param dicts
+
+        baseline_params, _summary_string = utils.load_baseline_params(
+            self.default_params_file,
+            self.changed_baseline_params,
+            scenario_key,
+            unflatten,
+        )
+
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+        simulation_index = 0
+
+        for par in par_sets:
+            # Remove the griddler scenario keys from the parameter set
+            to_remove = []
+            for key in par.keys():
+                if key.startswith("scenario"):
+                    to_remove.append(key)
+            for key in to_remove:
+                par.pop(key)
+
+            newpars, _summary = utils.combine_params_dicts(
+                baseline_dict=baseline_params,
+                new_dict=par,
+                scenario_key=scenario_key,
+                overwrite_unnested=True,
+                unflatten=unflatten,
+            )
+            # Add the scenario key to the parameter set with replicates if specified
+            for i in range(self.replicates):
+                if self.replicates > 1:
+                    changed_seed = {seed_key: random.randint(0, 2**32)}
+                    newpars, _summary = utils.combine_params_dicts(
+                        baseline_dict=newpars,
+                        new_dict=changed_seed,
+                        scenario_key=scenario_key,
+                        overwrite_unnested=True,
+                        unflatten=unflatten,
+                    )
+
+                input_file_name = (
+                    f"simulation_{simulation_index}.{self.input_file_type}"
+                )
+                with open(os.path.join(input_dir, input_file_name), "w") as f:
+                    json.dump(newpars, f, indent=4)
+                simulation_index += 1
+
+    # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
     # --------------------------------------------
 
@@ -623,13 +978,15 @@ class Experiment:
     def run_index(
         self,
         simulation_index: int,
-        distance_fn: Callable = None,
-        data_processing_fn: Callable = None,
-        products: list = None,
-        products_output_dir: str = None,
-        scenario_key: str = None,
-        cmd: str = None,
-        save: bool = True,
+        data_filename: str | None = None,
+        data_read_fn: Callable[[str], pl.DataFrame] | None = None,
+        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+        | None = None,
+        products: list | None = None,
+        products_output_dir: str | None = None,
+        scenario_key: str | None = None,
+        cmd: str | None = None,
+        compress: bool = True,
         clean: bool = False,
     ):
         """
@@ -647,17 +1004,34 @@ class Experiment:
             :param cmd: Command to execute the model .If None, the default command for the model type is run,
             :param clean: Argument to remove the raw_output folders of the data directory after the simulation is run. Default false
         """
-        if clean and not save:
+        if clean and not compress:
             raise ValueError(
-                "Cannot clean raw output without saving the simulation results."
+                "Cannot clean remove raw output without saving the simulation results as a combined file."
             )
         if products is None:
             products = ["distances", "simulations"]
 
-        if data_processing_fn is None:
-            raise ValueError(
-                "Data processing function must be provided if not previously declared in Experiment parameters."
-            )
+        if data_read_fn is None:
+            if data_filename is not None:
+
+                def data_read_fn(outputs_dir: str) -> pl.DataFrame:
+                    """
+                    Default data read function that reads the raw output data from the specified path
+                    """
+                    output_file_path = os.path.join(outputs_dir, data_filename)
+                    if os.path.exists(output_file_path):
+                        df = pl.read_csv(output_file_path)
+                    else:
+                        raise FileNotFoundError(
+                            f"{output_file_path} does not exist."
+                        )
+
+                    return df
+
+            else:
+                raise ValueError(
+                    "Data processing function must be provided if not provided with a data filename to read from raw output."
+                )
 
         if scenario_key is None:
             scenario_key = self.scenario_key
@@ -667,7 +1041,7 @@ class Experiment:
             )
             self.scenario_key = scenario_key
 
-        input_file_path = self.write_inputs(
+        input_file_path = self.write_inputs_index(
             simulation_index,
             scenario_key=scenario_key,
         )
@@ -688,15 +1062,13 @@ class Experiment:
         utils.run_model_command_line(cmd, model_type=self.model_type)
 
         sim_bundle: SimulationBundle = self.bundle_from_index(simulation_index)
-        index_dict = {
-            simulation_index: data_processing_fn(simulation_output_path)
-        }
+        index_dict = {simulation_index: data_read_fn(simulation_output_path)}
         if hasattr(sim_bundle, "results"):
             sim_bundle.results.update(index_dict)
         else:
             sim_bundle.results = index_dict
 
-        if save:
+        if compress:
             self.store_products(
                 sim_indeces=[simulation_index],
                 distance_fn=distance_fn,
@@ -711,24 +1083,31 @@ class Experiment:
 
     def run_step(
         self,
-        data_processing_fn: Callable,
-        distance_fn: Callable = None,
-        products: list = None,
-        step: int = None,
-        products_output_dir: str = None,
-        scenario_key: str = None,
+        data_read_fn: Callable[[str], pl.DataFrame] | None = None,
+        data_filename: str | None = None,
+        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+        | None = None,
+        products: list | None = None,
+        step: int | None = None,
+        products_output_dir: str | None = None,
+        scenario_key: str | None = None,
+        compress: bool = True,
+        clean: bool = False,
     ):
         """
         Function to run the simulations for a particular step in the experiment history, which defaults to the current step
         All results are generated and then processed into a single joint data frame
 
         Args:
-            :param data_processing_fn: callable function to process the raw output data being stored as a data frame
+            :param data_read_fn: callable function to process the raw output data being stored as a data frame
             :param products: list of which products to store as processed data frames
             :param step: int of the step to run simulations from. Defaults to the current or alternatively initializes the history
         """
         if products is None:
-            products = ["simulations"]
+            if distance_fn is not None:
+                products = ["simulations", "distances"]
+            else:
+                products = ["simulations"]
         if products_output_dir is None:
             products_output_dir = self.data_path
 
@@ -746,157 +1125,14 @@ class Experiment:
             self.run_index(
                 simulation_index=index,
                 distance_fn=distance_fn,
-                data_processing_fn=data_processing_fn,
+                data_read_fn=data_read_fn,
+                data_filename=data_filename,
                 products=products,
                 products_output_dir=products_output_dir,
                 scenario_key=scenario_key,
+                compress=compress,
+                clean=clean,
             )
-
-    # --------------------------------------------
-    # File management
-    # --------------------------------------------
-
-    def parquet_from_path(self, path: str) -> pl.DataFrame:
-        if self.azure_batch:
-            df = utils.read_parquet_blob(
-                self.blob_container_name, path, self.storage_config, self.cred
-            )
-        else:
-            df = pl.scan_parquet(path).collect()
-        return df
-
-    def store_products(
-        self,
-        sim_indeces: list,
-        distance_fn: Callable = None,
-        products: list = None,
-        products_output_dir: str = None,
-    ):
-        if products_output_dir is None:
-            output_dir = self.data_path
-        else:
-            output_dir = products_output_dir
-
-        for simulation_index in sim_indeces:
-            sim_bundle = self.bundle_from_index(simulation_index)
-
-            if "distances" in products:
-                if distance_fn is None:
-                    raise ValueError(
-                        "Distance function must be provided if not previously declared in Experiment parameters."
-                    )
-
-                    sim_bundle.calculate_distances(
-                        self.target_data, distance_fn
-                    )
-
-                    distance_data_part_path = f"{output_dir}/distances/simulation={simulation_index}/"
-
-                    # Write the distance data to a Parquet file with part path storing the simulation column
-                    os.makedirs(distance_data_part_path, exist_ok=True)
-                    pl.DataFrame(
-                        {"distance": sim_bundle.distances[simulation_index]}
-                    ).write_parquet(distance_data_part_path + "data.parquet")
-
-            if "simulations" in products:
-                simulation_data_part_path = (
-                    f"{output_dir}/simulations/simulation={simulation_index}/"
-                )
-
-                # Write the simulation data to a Parquet file with part path storing the simulation column
-                os.makedirs(simulation_data_part_path, exist_ok=True)
-                sim_bundle.results[simulation_index].write_parquet(
-                    simulation_data_part_path + "data.parquet"
-                )
-
-    def read_distances(self, input_dir: str = None):
-        """
-        Read distances and simulation results into the simulation bundle history
-        Currently yields OSError when called on a mounted blob container input directory
-        """
-        if not input_dir:
-            input_dir = self.data_path
-
-        distances = self.parquet_from_path(f"{input_dir}/distances/")
-
-        if distances.is_empty():
-            raise ValueError("No distances found in the input directory.")
-
-        if hasattr(self.simulation_bundles[self.current_step], "distances"):
-            raise ValueError(
-                "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
-            )
-        self.simulation_bundles[self.current_step].distances = {}
-
-        for k, v in zip(distances["simulation"], distances["distance"]):
-            if self.step_from_index(k) == self.current_step:
-                self.simulation_bundles[self.current_step].distances[k] = v
-
-    def read_results(
-        self,
-        filename: str = None,
-        input_dir: str = None,
-        data_processing_fn: str = None,
-        write: bool = False,
-        partition_by: list = None,
-    ) -> pl.DataFrame:
-        """
-        Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
-        The default behavior is to search for an already-extant simulations parquet file in the experiment data path
-        Alternatively, users can specify a generic file name to read from an arbitrary input directory
-
-        Args:
-            :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
-            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
-            :param data_processing_fn: A function to preprocess the data before combining it withh other data during reading from CSV. If specified with a partitioned parquet file, the function If not specified, defaults to None
-            :param store: Whether to store the data in the input directory as a parquet or CSV file. If True, the data is stored as a partitioned parquet file with the name of the file without extension or is stored as a CSV at the input directory root.
-            :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
-        """
-        # Default to dat path and the simulations parquet file
-        if not input_dir:
-            input_dir = self.data_path
-        if not filename:
-            filename = "simulations"
-
-        # Read from hive-paritioned parquet if it exists and filename is not a file
-        if len(filename.split(".")) == 1 and os.path.exists(
-            f"{input_dir}/{filename}/"
-        ):
-            # Special case for names in "products"
-            data = self.parquet_from_path(f"{input_dir}/{filename}/")
-            if data_processing_fn is not None:
-                warnings.warn(
-                    "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
-                    UserWarning,
-                )
-                data = data_processing_fn(data)
-        # Otherwise attempt reading nested CSVs
-        else:
-            # Pre-proceesing fn is applied piece-wise to CSV
-            data: pl.DataFrame = utils.read_nested_csvs(
-                input_dir, filename, data_processing_fn
-            )
-
-        if write:
-            out_file = filename.split(".")[0]
-            if partition_by is not None:
-                os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
-                data.write_parquet(
-                    f"{input_dir}/{out_file}/",
-                    use_pyarrow=True,
-                    pyarrow_options={"partition_cols": partition_by},
-                )
-            else:
-                data.write_csv(f"{input_dir}/{out_file}.csv")
-        return data
-
-    # populate bundle history with stored simulations
-
-    # store inputs from created jsons
-
-    # --------------------------------------------
-    # Resampling between experiment steps
-    # --------------------------------------------
 
     def resample(
         self,
@@ -1026,142 +1262,3 @@ class Experiment:
         # Add simulation bundle to dictionary
         self.simulation_bundles[new_bundle._step_number] = new_bundle
         self.current_step += 1
-
-    def write_inputs(
-        self,
-        simulation_index: int,
-        scenario_key: str = None,
-    ) -> str:
-        """
-        Write a single simulation's input file
-        :param simulation_index: The index of the simulation to write
-        :param write_inputs_cmd: The command to run that sources outside code to transform
-            a base yaml file into readable inputs for execution
-            A default of None will return only the formatted inputs from the simulation bundle
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
-
-        In general, self.directory/data/input for simulation input files
-        Use a tmp space for files that are intermediate products
-        """
-
-        sim_bundle = self.bundle_from_index(simulation_index)
-
-        input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
-
-        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        input_dict[simulation_index]["seed"] = input_dict[
-            simulation_index
-        ].pop("randomSeed")
-
-        # If scenario key is not specified, use the default scenario key
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-
-        simulation_params, _summary_string = utils.combine_params_dicts(
-            sim_bundle._baseline_params,
-            input_dict[simulation_index],
-            scenario_key=scenario_key,
-        )
-
-        input_dir = os.path.join(self.data_path, "input")
-        os.makedirs(input_dir, exist_ok=True)
-
-        input_file_name = (
-            f"simulation_{simulation_index}.{self.input_file_type}"
-        )
-
-        if self.verbose and simulation_index % self.n_simulations == 0:
-            print(
-                "Writing exe file inputs across the SimulationBundle indices"
-            )
-        formatted_inputs = utils.abm_parameters_writer(
-            params=simulation_params,
-            output_type=self.input_file_type,
-            unflatten=True,
-        )
-        with open(os.path.join(input_dir, input_file_name), "w") as f:
-            f.write(formatted_inputs)
-        return os.path.join(input_dir, input_file_name)
-
-    def write_inputs_from_griddle(
-        self,
-        input_griddle: str = None,
-        scenario_key: str = None,
-        unflatten: bool = True,
-        seed_key: str = "seed",
-    ):
-        """
-        Write simulation inputs from a griddler parameter set
-        :param input_griddle: The path to the griddler parameter set
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
-        :param unflatten: Whether to unflatten the parameter set or not
-        :return: None
-
-        This function will read the griddler parameter set and write the simulation inputs to the input directory
-        If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
-        """
-        if input_griddle is None:
-            if self.griddle_file is not None:
-                input_griddle = self.griddle_file
-            else:
-                raise ValueError(
-                    "No griddler parameter set specified. Please provide a griddler parameter set."
-                )
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-
-        # Load the parameter set
-        with open(input_griddle, "r") as f:
-            raw_griddle = json.load(f)
-
-        griddle = griddler.parse(raw_griddle)
-        par_sets = griddle.to_dicts()
-
-        ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
-        ## Change to combine param dicts
-
-        baseline_params, _summary_string = utils.load_baseline_params(
-            self.default_params_file,
-            self.changed_baseline_params,
-            scenario_key,
-            unflatten,
-        )
-
-        input_dir = os.path.join(self.data_path, "input")
-        os.makedirs(input_dir, exist_ok=True)
-        simulation_index = 0
-
-        for par in par_sets:
-            # Remove the griddler scenario keys from the parameter set
-            to_remove = []
-            for key in par.keys():
-                if key.startswith("scenario"):
-                    to_remove.append(key)
-            for key in to_remove:
-                par.pop(key)
-
-            newpars, _summary = utils.combine_params_dicts(
-                baseline_dict=baseline_params,
-                new_dict=par,
-                scenario_key=scenario_key,
-                overwrite_unnested=True,
-                unflatten=unflatten,
-            )
-            # Add the scenario key to the parameter set with replicates if specified
-            for i in range(self.replicates):
-                if self.replicates > 1:
-                    changed_seed = {seed_key: random.randint(0, 2**32)}
-                    newpars, _summary = utils.combine_params_dicts(
-                        baseline_dict=newpars,
-                        new_dict=changed_seed,
-                        scenario_key=scenario_key,
-                        overwrite_unnested=True,
-                        unflatten=unflatten,
-                    )
-
-                input_file_name = (
-                    f"simulation_{simulation_index}.{self.input_file_type}"
-                )
-                with open(os.path.join(input_dir, input_file_name), "w") as f:
-                    json.dump(newpars, f, indent=4)
-                simulation_index += 1
