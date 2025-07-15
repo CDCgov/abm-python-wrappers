@@ -1,6 +1,4 @@
-# Workaround to handle import error with griddler on cfa_azure
 import os
-import pathlib
 import subprocess
 from multiprocessing import Pool
 from typing import Callable
@@ -260,7 +258,7 @@ def run_abcsmc(
         blob_experiment_directory = os.path.join(
             blob_container_name, experiment.sub_experiment_name
         )
-        user_script = pathlib.Path(__file__)
+        user_script = utils.get_caller()
         files_to_upload.append(user_script)
         script_name = os.path.basename(user_script)
         gather_script = os.path.join(blob_experiment_directory, script_name)

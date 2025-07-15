@@ -79,3 +79,10 @@ def test_col_keys_from_path():
     d = utils.column_keys_from_path(test_string)
     assert d["simulation"] == 0
     assert d["scenario"] == 1
+
+
+def test_get_caller():
+    def dummy_caller():
+        assert utils.get_caller() == __file__
+
+    dummy_caller()

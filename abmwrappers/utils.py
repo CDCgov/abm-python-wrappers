@@ -1,4 +1,5 @@
 import base64
+import inspect
 import itertools
 import json
 import os
@@ -536,6 +537,45 @@ def generate_job_name(job_prefix, length_input=64):
 
 def get_truncated_normal(mean, sd, low=0, upp=1):
     return truncnorm((low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
+
+
+def get_caller(depth: int = 2) -> str:
+    """
+    Returns the file path of the traceback stack at the specified depth.
+    Args:
+        depth (int): The depth of the stack to retrieve the caller's file path. Default
+            is 2, which means it will return the file path of the function that called the function that contains `get_caller()`.
+
+    Returns:
+        str: The file path of the caller at the specified depth.
+
+    Example:
+        # File: path/to/pkg.py
+        from abmwrappers import utils
+        def call_script():
+            return utils.get_caller(depth=2)
+
+        # File: path/to/script.py
+        import pkg
+        def some_function():
+            caller_file = pkg.call_script()
+            print(f"Called from: '{caller_file}'")
+
+        some_function()
+
+        >>> poetry run python path/to/script.py
+        "Called from: 'path/to/script.py'
+    """
+    called_frame = inspect.currentframe()
+    # Traverse up the call stack by the specified depth
+    for _ in range(depth):
+        if called_frame is None or called_frame.f_back is None:
+            raise ValueError(
+                f"Call stack is not deep enough for depth={depth}."
+            )
+        called_frame = called_frame.f_back
+    caller_file = called_frame.f_code.co_filename
+    return caller_file
 
 
 def read_parquet_blob(
