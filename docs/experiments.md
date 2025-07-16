@@ -37,7 +37,7 @@ Azure and creating save points during the experiment run.
 
 ---
 
-### Method: `load_config`
+### Method: `_load_config`
 
 #### Description:
 Loads parameters from the experimental configuration file. Establishes experimental components,
@@ -52,7 +52,7 @@ paths, and handles Azure Batch configuration. Called automatically on initializa
 - `model_type`: Type of the model (`gcm` or `ixa`).
 - `input_file_type`: Input file type (`yaml` or `json`).
 - `default_params_file`: Path to the default parameters file.
-- `target_data`: Target data loaded as a Polars DataFrame.
+- `target_data`: Target data loaded as a Polars DataFrame, dictionary of values mapped to parameter names, or a single numeric scalar.
 - `seed`: Seed for random number generation.
 - `n_particles`: Number of particles per step.
 - `replicates`: Number of replicates per particle.

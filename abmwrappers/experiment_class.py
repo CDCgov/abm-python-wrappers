@@ -63,6 +63,10 @@ class Experiment:
             raise NotImplementedError(
                 "Cannot currently both source from config_file and restore previous data from img_file. Aborting Experiment initialization."
             )
+        if config_file is not None and experiments_directory is None:
+            raise NotImplementedError(
+                "Experiments directory must be specified if config file is provided."
+            )
 
         self.verbose = verbose
 
@@ -71,7 +75,7 @@ class Experiment:
             if self.verbose:
                 print(f"Restoring previous experiment from {img_file}")
             self.restore(img_file)
-        # Otherwise, instantiate a new experiment with load_config
+        # Otherwise, instantiate a new experiment with _load_config
         else:
             # Rread files and set directories
             self.config_file = config_file
@@ -106,7 +110,7 @@ class Experiment:
                         f"Config file {config_file} does not exist from root or experiments directory."
                     )
 
-            self.load_config()
+            self._load_config()
 
         # Optional inputs for use in getters or wrappers later or attributes to overwrite from config
         for k, v in kwargs.items():
@@ -127,6 +131,9 @@ class Experiment:
                 raise ValueError(
                     f"Keyword {k} is not an attribute and is not in `[prior_distribution_dict, perturbation_kernel_dict]`"
                 )
+
+        self._validate_seed_key()
+
         if "perturbation_kernel_dict" not in self.__dict__.keys():
             self.perturbation_kernel_dict = None
         if "priors" not in self.__dict__.keys():
@@ -146,7 +153,20 @@ class Experiment:
         else:
             self.__setattr__(sto_key, default)
 
-    def load_config(self):
+    def _validate_seed_key(self):
+        params = self.get_default_params()
+        if self.seed_variable_name not in params:
+            possible_keys = filter(
+                lambda x: "seed" in x or "Seed" in x, params.keys()
+            )
+            if len(possible_keys) == 1:
+                self.seed_variable_name = possible_keys[0]
+            else:
+                raise ValueError(
+                    "Unable to automatically detect seed variable name. Please specify seed_variable_name as an argument accesible in the base parameter input file."
+                )
+
+    def _load_config(self):
         """
         Load the parameters from the experimental config file
         Establishes theattributes for running Experiments and coordinates the file structure/pathing
@@ -238,9 +258,11 @@ class Experiment:
         if self.exe_file.endswith(".jar"):
             self.model_type = "gcm"
             self.input_file_type = "yaml"
+            self.seed_variable_name = "randomSeed"
         else:
             self.model_type = "ixa"
             self.input_file_type = "json"
+            self.seed_variable_name = "seed"
         self.default_params_file = experimental_config["local_path"][
             "default_params_file"
         ]
@@ -252,7 +274,14 @@ class Experiment:
         if self.target_data_file is not None:
             self.target_data = pl.read_csv(self.target_data_file)
         else:
-            self.target_data = None
+            if self.verbose:
+                print(
+                    "Target data file not listed, checking for target data specified manually in `experiment_conditions`"
+                )
+            self._set_or(
+                key="target_data",
+                lookup=experimental_config["experiment_conditions"],
+            )
 
         self.seed = experimental_config["experiment_conditions"]["seed"]
         self.n_particles = experimental_config["experiment_conditions"][
@@ -293,12 +322,14 @@ class Experiment:
                 UserWarning,
             )
 
-        # In simulation parameter changes can be specified through config or appended later in helper functions
-        # Scenario key must be declared to access the parameter set of interest in the input file
-        self.scenario_key = experimental_config["experiment_conditions"][
-            "scenario_key"
-        ]
+        # Write scenario key from manual declaration or use the first (typically only) element of the default params file
+        self._set_or(
+            key="scenario_key",
+            lookup=experimental_config["experimental_conditions"],
+            default=utils.read_config_file(self.default_params_file).keys()[0],
+        )
 
+        # Store changed basleine params if provided
         self._set_or(
             key="changed_baseline_params",
             lookup=experimental_config["experiment_conditions"],
@@ -398,6 +429,7 @@ class Experiment:
             "changed_baseline_params": self.changed_baseline_params,
             "target_data": self.target_data,
             "seed": self.seed,
+            "seed_varaible_name": self.seed_variable_name,
             "n_particles": self.n_particles,
             "replicates": self.replicates,
             "skinny_bundles": {
@@ -462,6 +494,7 @@ class Experiment:
         self.changed_baseline_params = data["changed_baseline_params"]
         self.target_data = data["target_data"]
         self.seed = data["seed"]
+        self.seed_variable_name = data["seed_variable_name"]
         self.n_particles = data["n_particles"]
         self.replicates = data["replicates"]
         self.n_simulations = self.n_particles * self.replicates
@@ -537,7 +570,13 @@ class Experiment:
     def store_products(
         self,
         sim_indeces: list,
-        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int],
+        distance_fn: Callable[
+            [
+                pl.DataFrame,  # simulation results data
+                pl.DataFrame | dict | float | int,  # target data
+            ],
+            float | int,  # returns
+        ],
         products: list | None = None,
         products_output_dir: str | None = None,
     ):
@@ -740,11 +779,14 @@ class Experiment:
     def write_inputs_index(
         self,
         simulation_index: int,
+        seed_variable_name: str | None = None,
         scenario_key: str | None = None,
     ) -> str:
         """
         Write a single simulation's input file
         :param simulation_index: The index of the simulation to write
+        :param seed_variable_name: The name of the random seed column. If None, defaults to the self.seed_variable_name property
+            This parameter should be removed when outdated SimulationBundle methods no longer hard-code a seed variable name of randomSeed
         :param write_inputs_cmd: The command to run that sources outside code to transform
             a base yaml file into readable inputs for execution
             A default of None will return only the formatted inputs from the simulation bundle
@@ -759,7 +801,9 @@ class Experiment:
         input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
 
         # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        input_dict[simulation_index]["seed"] = input_dict[
+        if seed_variable_name is None:
+            seed_variable_name = self.seed_variable_name
+        input_dict[simulation_index][seed_variable_name] = input_dict[
             simulation_index
         ].pop("randomSeed")
 
@@ -798,7 +842,7 @@ class Experiment:
         input_griddle: str = None,
         scenario_key: str = None,
         unflatten: bool = True,
-        seed_key: str = "seed",
+        seed_variable_name: str | None = None,
     ):
         """
         Write simulation inputs from a griddler parameter set
@@ -819,6 +863,8 @@ class Experiment:
                 )
         if scenario_key is None:
             scenario_key = self.scenario_key
+        if seed_variable_name is None:
+            seed_variable_name = self.seed_variable_name
 
         # Load the parameter set
         with open(input_griddle, "r") as f:
@@ -860,7 +906,9 @@ class Experiment:
             # Add the scenario key to the parameter set with replicates if specified
             for i in range(self.replicates):
                 if self.replicates > 1:
-                    changed_seed = {seed_key: random.randint(0, 2**32)}
+                    changed_seed = {
+                        seed_variable_name: random.randint(0, 2**32)
+                    }
                     newpars, _summary = utils.combine_params_dicts(
                         baseline_dict=newpars,
                         new_dict=changed_seed,
@@ -886,7 +934,7 @@ class Experiment:
         changed_baseline_params: dict = {},
         scenario_key: str = None,
         unflatten: bool = True,
-        seed_variable_name: str = "randomSeed",
+        seed_variable_name: str | None = None,
     ) -> SimulationBundle:
         if len(changed_baseline_params) > 0:
             if self.verbose:
@@ -897,6 +945,8 @@ class Experiment:
 
         if scenario_key is None:
             scenario_key = self.scenario_key
+        if seed_variable_name is None:
+            seed_variable_name = self.seed_variable_name
         elif self.scenario_key is not None:
             warnings.warn(
                 f"Overwriting scenario key {self.scenario_key} with {scenario_key}"
@@ -980,7 +1030,13 @@ class Experiment:
         simulation_index: int,
         data_filename: str | None = None,
         data_read_fn: Callable[[str], pl.DataFrame] | None = None,
-        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+        distance_fn: Callable[
+            [
+                pl.DataFrame,  # results data
+                pl.DataFrame | dict | float | int,  # target data
+            ],
+            float | int,  # returns
+        ]
         | None = None,
         products: list | None = None,
         products_output_dir: str | None = None,
@@ -996,6 +1052,7 @@ class Experiment:
         Args:
             :param simulation_index: integer index of a viable simulation from the cumulative simulation runs across SimulationBundle objects in the experiment history
             :param distance_fn: Distance function supplied that accepts target data and results data
+                The results simulation data must be supplied as a simulation data frame, but the target data
             :param data_processing_fn: Post-processing function to be applied on raw_outputs
             :param products: products parquet files to be created from the post-processing of raw output results,
                 Currently implemented values are `["simulations", "distances"]` for the results and distances attribute of SimulationBundles, respectively
@@ -1085,7 +1142,13 @@ class Experiment:
         self,
         data_read_fn: Callable[[str], pl.DataFrame] | None = None,
         data_filename: str | None = None,
-        distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+        distance_fn: Callable[
+            [
+                pl.DataFrame,  # results data
+                pl.DataFrame | dict | float | int,  # target data
+            ],
+            float | int,  # returns
+        ]
         | None = None,
         products: list | None = None,
         step: int | None = None,

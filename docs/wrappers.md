@@ -237,7 +237,7 @@ def main(
 def output_fn_(outputs_dir):
     # Code here
 
-def distance_fn(results_data: pl.DataFrame, target_data: pl.DataFrame):
+def distance_fn(results_data: pl.DataFrame, target_data: pl.DataFrame | dict | float | int):
     # Code here
 
 def task(
@@ -304,7 +304,7 @@ elif args.execute == "run":
         img_file=args.img_file,
         clean=args.clean,
         products_path=args.products_path,
-        product=args.products,
+        products=args.products,
     )
 
 ```

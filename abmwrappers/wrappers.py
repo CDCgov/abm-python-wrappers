@@ -103,7 +103,13 @@ def run_step_return_sims(
     experiment: Experiment,
     data_read_fn: Callable[[str], pl.DataFrame] | None = None,
     raw_data_filename: str | None = None,
-    distance_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
+    distance_fn: Callable[
+        [
+            pl.DataFrame,  # results data
+            pl.DataFrame | dict | float | int,  # target data
+        ],
+        float | int,  # returns
+    ]
     | None = None,
     data_postprocessing_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
     | None = None,
@@ -179,8 +185,16 @@ def update_abcsmc_img(
 
 def run_abcsmc(
     experiment: Experiment,
-    data_processing_fn: Callable = None,
-    distance_fn: Callable = None,
+    distance_fn: Callable[
+        [
+            pl.DataFrame,  # results data
+            pl.DataFrame | dict | float | int,  # target data
+        ],
+        float | int,  # returns
+    ]
+    | None = None,
+    data_read_fn: Callable[[str], pl.DataFrame] | None = None,
+    data_filename: str | None = None,
     prior_distribution_dict: dict = None,
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
@@ -333,7 +347,8 @@ def run_abcsmc(
                 products = ["distances"]
 
             experiment.run_step(
-                data_processing_fn=data_processing_fn,
+                data_read_fn=data_read_fn,
+                data_filename=data_filename,
                 distance_fn=distance_fn,
                 products=products,
                 scenario_key=scenario_key,

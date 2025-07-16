@@ -325,6 +325,32 @@ def combine_params_dicts(
     return combined_dict, result_string
 
 
+def read_config_file(fp: str) -> dict:
+    """
+    Reads a YAML or JSON configuration file and returns its contents as a dictionary.
+
+    Args:
+        fp (str): The file path to the configuration file.
+
+    Returns:
+        dict: The contents of the configuration file as a dictionary.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        yaml.YAMLError: If there is an error parsing the YAML file.
+        json.JSONDecodeError: If there is an error parsing the JSON file.
+    """
+    with open(fp, "r") as file:
+        if fp.lower().endswith(".yaml") or fp.lower().endswith(".yml"):
+            return yaml.safe_load(file)
+        elif fp.lower().endswith(".json"):
+            return json.load(file)
+        else:
+            raise ValueError(
+                "Unsupported file type. Only YAML and JSON are supported."
+            )
+
+
 def load_baseline_params(
     default_params_file,
     baseline_params_input,
@@ -355,18 +381,7 @@ def load_baseline_params(
     # Attempt to read the default parameters from file
     with open(default_params_file, "r") as file:
         try:
-            if default_params_file.lower().endswith(
-                ".yaml"
-            ) or default_params_file.lower().endswith(".yml"):
-                default_params = yaml.safe_load(file)
-
-            elif default_params_file.lower().endswith(".json"):
-                default_params = json.load(file)
-
-            else:
-                raise ValueError(
-                    "Unsupported file type. Only YAML and JSON are supported."
-                )
+            default_params = read_config_file(default_params_file)
 
             if not isinstance(default_params, dict):
                 raise TypeError(
