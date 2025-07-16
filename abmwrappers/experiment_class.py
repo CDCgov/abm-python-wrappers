@@ -326,8 +326,14 @@ class Experiment:
         self._set_or(
             key="scenario_key",
             lookup=experimental_config["experiment_conditions"],
-            default=utils.read_config_file(self.default_params_file).keys()[0],
+            default=None,
         )
+        if self.scenario_key is None:
+            k = utils.read_config_file(self.default_params_file).keys()
+            if self.verbose:
+                (f"Scenario key not provided, using {list(k)[0]} by default")
+
+            self.scenario_key = list(k)[0]
 
         # Store changed basleine params if provided
         self._set_or(
