@@ -1,6 +1,7 @@
 #####
 # Exclude many data and output file types by default
 poetry.lock
+*.pkl
 
 #Config with secrets
 config.toml
