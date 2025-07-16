@@ -325,7 +325,7 @@ class Experiment:
         # Write scenario key from manual declaration or use the first (typically only) element of the default params file
         self._set_or(
             key="scenario_key",
-            lookup=experimental_config["experimental_conditions"],
+            lookup=experimental_config["experiment_conditions"],
             default=utils.read_config_file(self.default_params_file).keys()[0],
         )
 
