@@ -435,7 +435,7 @@ class Experiment:
             "changed_baseline_params": self.changed_baseline_params,
             "target_data": self.target_data,
             "seed": self.seed,
-            "seed_varaible_name": self.seed_variable_name,
+            "seed_variable_name": self.seed_variable_name,
             "n_particles": self.n_particles,
             "replicates": self.replicates,
             "skinny_bundles": {
