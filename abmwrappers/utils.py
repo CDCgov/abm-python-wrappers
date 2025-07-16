@@ -378,30 +378,26 @@ def load_baseline_params(
         json.JSONDecodeError: If there is an error parsing the JSON file.
         TypeError: If either of the inputs is not a dictionary.
     """
-    # Attempt to read the default parameters from file
-    with open(default_params_file, "r") as file:
-        try:
-            default_params = read_config_file(default_params_file)
+    try:
+        default_params = read_config_file(default_params_file)
 
-            if not isinstance(default_params, dict):
-                raise TypeError(
-                    "Default parameters loaded are not a dictionary."
-                )
-            if not isinstance(baseline_params_input, dict):
-                raise TypeError("Baseline params input is not a dictionary.")
+        if not isinstance(default_params, dict):
+            raise TypeError("Default parameters loaded are not a dictionary.")
+        if not isinstance(baseline_params_input, dict):
+            raise TypeError("Baseline params input is not a dictionary.")
 
-            # Create baseline_params by updating default_params with baseline_params_input
-            return combine_params_dicts(
-                default_params,
-                baseline_params_input,
-                scenario_key,
-                unflatten,
-            )
+        # Create baseline_params by updating default_params with baseline_params_input
+        return combine_params_dicts(
+            default_params,
+            baseline_params_input,
+            scenario_key,
+            unflatten,
+        )
 
-        except yaml.YAMLError as e:
-            raise yaml.YAMLError(f"Error reading YAML file: {e}")
-        except json.JSONDecodeError as e:
-            raise json.JSONDecodeError(f"Error reading JSON file: {e}")
+    except yaml.YAMLError as e:
+        raise yaml.YAMLError(f"Error reading YAML file: {e}")
+    except json.JSONDecodeError as e:
+        raise json.JSONDecodeError(f"Error reading JSON file: {e}")
 
 
 def params_grid_search(param_dict):
