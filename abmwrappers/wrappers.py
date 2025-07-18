@@ -248,7 +248,7 @@ def run_abcsmc(
                     return
 
         if experiment.model_type == "gcm":
-            experiment.exe_file = "app/app.jar"
+            experiment.exe_file = "/app/app.jar"
         elif experiment.model_type == "ixa":
             experiment.exe_file = (
                 f"/app/{os.path.basename(experiment.exe_file)}"
