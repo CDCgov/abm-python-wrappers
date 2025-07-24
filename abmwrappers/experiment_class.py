@@ -429,6 +429,7 @@ class Experiment:
             "directory": self.directory,
             "data_path": self.data_path,
             "exe_file": self.exe_file,
+            "griddle_file": self.griddle_file,
             "azure_batch": self.azure_batch,
             "model_type": self.model_type,
             "input_file_type": self.input_file_type,
@@ -494,6 +495,7 @@ class Experiment:
         self.directory = data["directory"]
         self.data_path = data["data_path"]
         self.exe_file = data["exe_file"]
+        self.griddle_file = data["griddle_file"]
         self.azure_batch = data["azure_batch"]
         self.model_type = data["model_type"]
         self.input_file_type = data["input_file_type"]
