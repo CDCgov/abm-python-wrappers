@@ -577,7 +577,7 @@ class Experiment:
 
     def store_products(
         self,
-        sim_indeces: list,
+        sim_indices: list[int] | int,
         distance_fn: Callable[
             [
                 pl.DataFrame,  # simulation results data
@@ -585,15 +585,21 @@ class Experiment:
             ],
             float | int,  # returns
         ],
-        products: list | None = None,
+        products: list[str] | str | None = None,
         products_output_dir: str | None = None,
     ):
+        if not isinstance(sim_indices, list):
+            sim_indices = [sim_indices]
+
+        if not isinstance(products, list):
+            products = [products]
+
         if products_output_dir is None:
             output_dir = self.data_path
         else:
             output_dir = products_output_dir
 
-        for simulation_index in sim_indeces:
+        for simulation_index in sim_indices:
             sim_bundle = self.bundle_from_index(simulation_index)
 
             if "distances" in products:
@@ -657,7 +663,7 @@ class Experiment:
         data_processing_fn: Callable[[pl.DataFrame], pl.DataFrame]
         | None = None,
         write: bool = False,
-        partition_by: list | None = None,
+        partition_by: list[str] | str | None = None,
     ) -> pl.DataFrame:
         """
         Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
@@ -678,6 +684,9 @@ class Experiment:
         # Default to dat path and the simulations parquet file
         if not input_dir:
             input_dir = self.data_path
+
+        if partition_by is not None and not isinstance(partition_by, list):
+            partition_by = [partition_by]
 
         # Read from hive-paritioned parquet if it exists and filename is not a file
         if os.path.exists(f"{input_dir}/{filename}"):
@@ -764,20 +773,23 @@ class Experiment:
         return baseline_params[param]
 
     def collect_inputs(
-        self, sim_indeces: list[int] | None = None
+        self, sim_indices: list[int] | int | None = None
     ) -> pl.DataFrame:
+        if sim_indices is not None and not isinstance(sim_indices, list):
+            sim_indices = [sim_indices]
+
         if os.path.exists(f"{self.data_path}/params/"):
-            if sim_indeces is None:
+            if sim_indices is None:
                 inputs = self.parquet_from_path(f"{self.data_path}/params/")
             else:
                 inputs = (
                     self.parquet_from_path(f"{self.data_path}/params/")
-                    .filter(pl.col("simulation").is_in(sim_indeces))
+                    .filter(pl.col("simulation").is_in(sim_indices))
                     .sort(pl.col("simulation"))
                 )
         else:
             inputs_list = []
-            for simulation_index in sim_indeces:
+            for simulation_index in sim_indices:
                 sim_bundle = self.bundle_from_index(simulation_index)
                 inputs_list.append(sim_bundle.inputs[simulation_index])
             inputs = pl.concat(inputs_list).sort("simulation")
@@ -1046,7 +1058,7 @@ class Experiment:
             float | int,  # returns
         ]
         | None = None,
-        products: list | None = None,
+        products: list[str] | str | None = None,
         products_output_dir: str | None = None,
         scenario_key: str | None = None,
         cmd: str | None = None,
@@ -1075,6 +1087,9 @@ class Experiment:
             )
         if products is None:
             products = ["distances", "simulations"]
+        else:
+            if not isinstance(products, list):
+                products = [products]
 
         if data_read_fn is None:
             if data_filename is not None:
@@ -1135,7 +1150,7 @@ class Experiment:
 
         if compress:
             self.store_products(
-                sim_indeces=[simulation_index],
+                sim_indices=[simulation_index],
                 distance_fn=distance_fn,
                 products=products,
                 products_output_dir=products_output_dir,
@@ -1158,7 +1173,7 @@ class Experiment:
             float | int,  # returns
         ]
         | None = None,
-        products: list | None = None,
+        products: list[str] | str | None = None,
         step: int | None = None,
         products_output_dir: str | None = None,
         scenario_key: str | None = None,
@@ -1179,6 +1194,9 @@ class Experiment:
                 products = ["simulations", "distances"]
             else:
                 products = ["simulations"]
+        else:
+            if not isinstance(products, list):
+                products = [products]
         if products_output_dir is None:
             products_output_dir = self.data_path
 

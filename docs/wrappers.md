@@ -6,7 +6,7 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ## Functions
 
-### `run_step_return_data`
+### `run_step_return_sims`
 
 #### Description
 Creates simulation data by running simulations and processing results. Writes simulation data to Parquet files.
@@ -66,7 +66,8 @@ The `run_abcsmc` function orchestrates the execution of Approximate Bayesian Com
 - `changed_baseline_params` (`dict`, optional): A dictionary of baseline parameters that have been changed. Defaults to an empty dictionary `{}`.
 - `files_to_upload` (`list`, optional): A list of files to upload to Azure Blob Storage for Azure Batch execution. Defaults to an empty list `[]`.
 - `scenario_key` (`str`, optional): The key for accessing specific parameter sets in the experiment. Defaults to `None`.
-- `local_compress` (`bool`, optional): A flag indicating whether to compress the experiment locally. Defaults to `False`.
+- `keep_all_sims` (`bool`, optional): A flag to indiciate whether or not to save all simualtion results to parquet when running the SMC routine. Defaults to `False`, which only saves the last step of simulation results (i.e. the approximate posterior projection set).
+- `save` (`bool`, optional): A flag indicating whether to compress the experiment when running locally. Defaults to `True`.
 
 ---
 

@@ -113,7 +113,7 @@ def run_step_return_sims(
     | None = None,
     data_postprocessing_fn: Callable[[pl.DataFrame, pl.DataFrame], float | int]
     | None = None,
-    products: list | None = None,
+    products: list[str] | str | None = None,
     compress: bool = True,
     clean: bool = False,
     overwrite: bool = False,
@@ -131,7 +131,7 @@ def run_step_return_sims(
         :param data_postprocessing_fn (Callable, optional): Function to postprocess data further after running the simulations from the step. Optional.
             - This function can operate on the whole collection of simulations simultaneouesly, accepting only a pl.DataFrame
             - The functionality can instead be included in the pre-processing funciton, before the data is fully stored
-        :param products (list, optional): List of products to generate during the step. Defaults to ["simulations"].
+        :param products (list[str], str optional): List of products to generate during the step. Defaults to ["simulations"].
         :param compress (bool, optional): Whether to compress the results. Defaults to True.
         :param clean (bool, optional): Whether to clean up the raw output directory after running the step. Defaults to False.
         :param overwrite (bool, optional): Whether to overwrite existing hive-paritioned parquert file once results are postprocessed. Defaults to False.
@@ -198,13 +198,17 @@ def run_abcsmc(
     prior_distribution_dict: dict = None,
     perturbation_kernels: dict = None,
     changed_baseline_params: dict = {},
-    files_to_upload: list = [],
+    files_to_upload: list[str] | str | None = [],
     scenario_key: str = None,
     ask_overwrite: bool = True,
     keep_all_sims: bool = False,
+    save: bool = True,
 ):
     if scenario_key is None:
         scenario_key = experiment.scenario_key
+
+    if not isinstance(files_to_upload, list):
+        files_to_upload = [files_to_upload]
 
     if experiment.current_step is None:
         experiment.initialize_simbundle(
@@ -360,6 +364,9 @@ def run_abcsmc(
             experiment.read_distances(experiment.data_path)
             experiment.resample(perturbation_kernels)
 
+        if save:
+            experiment.save()
+
 
 def create_scenario_subexperiments(
     experiment: Experiment,
@@ -448,11 +455,15 @@ def write_scenario_products(
     scenario: str,
     scenario_experiment: Experiment,
     experiment_data_path: str,
-    products: list = None,
+    products: list[str] | str | None = None,
     clean: bool = False,
 ):
     if products is None:
         products = ["simulations"]
+    else:
+        if not isinstance(products, list):
+            products = [products]
+
     for product in products:
         old_parquet_path = os.path.join(scenario_experiment.data_path, product)
         new_parquet_path = os.path.join(

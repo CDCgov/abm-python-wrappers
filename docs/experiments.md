@@ -34,6 +34,7 @@ Azure and creating save points during the experiment run.
 #### Raises:
 - `ValueError`: If neither `config_file` nor `img_file` is provided.
 - `FileNotFoundError`: If the specified `config_file`, either provided or accessed by `img_file`, does not exist.
+- `NotImplementedError`: The class does not currently support specifying both a config file and an experiment history file. Nor does the class support specifying a config file path without specifying the experiment directory
 
 ---
 
@@ -42,26 +43,34 @@ Azure and creating save points during the experiment run.
 #### Description:
 Loads parameters from the experimental configuration file. Establishes experimental components,
 paths, and handles Azure Batch configuration. Called automatically on initialization.
+Parameters are set to `None` or are empty unless specified in the config file
 
-#### Key Attributes Set:
+#### Class Attributes Set:
 - `super_experiment_name`: Name of the super experiment.
 - `sub_experiment_name`: Name of the sub experiment.
 - `directory`: Directory for the experiment.
 - `data_path`: Path to the data directory.
 - `exe_file`: Path to the executable file.
+- `config_file`: Path to the config file.
+- `griddle_file`: Path to a file specifying a griddler schema.
 - `model_type`: Type of the model (`gcm` or `ixa`).
 - `input_file_type`: Input file type (`yaml` or `json`).
 - `default_params_file`: Path to the default parameters file.
 - `target_data`: Target data loaded as a Polars DataFrame, dictionary of values mapped to parameter names, or a single numeric scalar.
 - `seed`: Seed for random number generation.
+- `seed_variable_name`: The variable used to define random seed in the model input file. Typically `seed` for `ixa` or `randomSeed` for `gcm`.
 - `n_particles`: Number of particles per step.
 - `replicates`: Number of replicates per particle.
 - `n_simulations`: Total number of simulations.
+- `simulation_bundles`: A history dictionary that maps `SimulationBundles` to step indices. Always initialized as empty.
+- `current_step`: The current step of an `Experiment` in the the simulation history. Initialized as `None` to reflect empty history dictionary.
 - `tolerance_dict`: Dictionary of tolerances for ABC SMC steps.
 - `scenario_key`: Key for accessing specific parameter sets.
 - `changed_baseline_params`: Dictionary of changed baseline parameters.
 - `azure_batch`: Boolean indicating Azure Batch execution.
 - `client`: Azure client instance.
+- `cred`: Credentials for Azure read-access.
+- `storage_config`: Storage configuration from the Azure batch config file for Azure read access.
 - `blob_container_name`: Name of the Azure Blob container.
 - `job_prefix`: Prefix for Azure Batch jobs.
 
@@ -71,7 +80,7 @@ paths, and handles Azure Batch configuration. Called automatically on initializa
 
 #### Description:
 Performs lossy compression to create a reproducible savepoint of the experiment. Stores all
-essential information except simulation bundle results in a compressed pickle file.
+essential information, except simulation bundle results, in a compressed pickle (`.pkl`) file.
 
 #### Parameters:
 - `output_file` (`str`): Path to the output pickle file containing the compressed experiment.
@@ -197,7 +206,7 @@ Reads Parquet files from a specified path. Supports reading from local storage o
 Stores processed simulation outputs (e.g., distances and simulations) as Parquet files in the specified output directory. This ensures that the data is stored in a structured and accessible format from parallelized write and run tasks.
 
 ### Parameters
-- **`sim_indeces`** (`list`): List of simulation indices to store.
+- **`sim_indices`** (`list`): List of simulation indices to store.
 - **`distance_fn`** (`Callable`, optional): Function to calculate distances. Required if storing distances.
 - **`products`** (`list`, optional): List of products to store (e.g., `["distances", "simulations"]`).
 - **`products_output_dir`** (`str`, optional): Directory to store output products. Defaults to the experiment's data path.
@@ -242,6 +251,45 @@ Reads simulation results from storage, supporting both nested CSV files and hive
 1. Reads results from hive-partitioned Parquet files or nested CSV files.
 2. Applies preprocessing if specified.
 3. Optionally writes the data back to storage in Parquet or CSV format.
+
+---
+
+### Method: `get_default_params`
+
+#### Description
+Get the baseline parameters for a specific `Experiment` step, defaulting to the current step of the simulation history or the default parameter file if no history has been initialized.
+
+#### Parameters
+- **`step`** (`int`, optional): Step of the simulation to return the parameter set of.
+
+#### Behavior
+1. Checks in simulation history or default parameter file for a dicitonary of values
+2. Uses the `Experiment` scenario key to return the actual parameter dictionary.
+
+---
+
+### Method: `get_default_value`
+
+#### Description
+Returns the default value of a parameter for a given step.Cponvenience method wrappers for `get_default_params`.
+
+#### Parameters
+- **`param`** (str): The string of the parameter name to be retrieved
+- **`step`** (`int`, optional): Step of the simulation to return the parameter set of.
+
+#### Behavior
+1. Checks if the parameter exists in the default parameter dictionary
+2. Returns the value if present.
+
+---
+
+### Method: `collect_inputs`
+
+#### Description
+Returns a `DataFrame` of the inputs for a selection of simulation indices.
+
+#### Parameters
+- **`sim_indices`** (`list[int]`, `int`, optional): If specified, the simulation indices to return inputs from. Defaults to returning all input parameter values.
 
 ---
 
