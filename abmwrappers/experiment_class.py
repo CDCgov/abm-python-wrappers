@@ -433,6 +433,7 @@ class Experiment:
             "azure_batch": self.azure_batch,
             "model_type": self.model_type,
             "input_file_type": self.input_file_type,
+            "default_params_file": self.default_params_file,
             "changed_baseline_params": self.changed_baseline_params,
             "target_data": self.target_data,
             "seed": self.seed,
@@ -499,6 +500,7 @@ class Experiment:
         self.azure_batch = data["azure_batch"]
         self.model_type = data["model_type"]
         self.input_file_type = data["input_file_type"]
+        self.default_params_file = data["default_params_file"]
         self.changed_baseline_params = data["changed_baseline_params"]
         self.target_data = data["target_data"]
         self.seed = data["seed"]
