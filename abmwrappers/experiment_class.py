@@ -861,7 +861,7 @@ class Experiment:
 
     def write_inputs_from_griddle(
         self,
-        input_griddle: str = None,
+        input_griddle: str | dict = None,
         scenario_key: str = None,
         unflatten: bool = True,
         seed_variable_name: str | None = None,
@@ -888,9 +888,19 @@ class Experiment:
         if seed_variable_name is None:
             seed_variable_name = self.seed_variable_name
 
-        # Load the parameter set
-        with open(input_griddle, "r") as f:
-            raw_griddle = json.load(f)
+        # Load the parameter sets
+        if isinstance(input_griddle, str):
+            with open(input_griddle, "r") as fp:
+                if fp.lower().endswith(".yaml") or fp.lower().endswith(".yml"):
+                    raw_griddle = yaml.safe_load(fp)
+                elif fp.lower().endswith(".json"):
+                    raw_griddle = json.load(fp)
+                else:
+                    raise NotImplementedError(
+                        "Griddle input from string must be a yaml or json file"
+                    )
+        elif isinstance(input_griddle, dict):
+            raw_griddle = input_griddle
 
         griddle = griddler.parse(raw_griddle)
         par_sets = griddle.to_dicts()

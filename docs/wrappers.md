@@ -80,13 +80,13 @@ Running the function with an experiment that has `azure_batch` stored as `true`,
 - It verifies that the Azure client is initialized. If not, it raises a `ValueError`.
 - The function prepares the experiment history file (`experiment_history.pkl`) and uploads it to Azure Blob Storage.
 - If a compressed history file already exists, the user is prompted to decide whether to overwrite it.
-- The function sets up Azure Batch jobs and tasks for simulation and gather steps. **Note:** This part is not fully implemented yet.
+- The user-generated script used to define the experiment is uploaded to Azure so that it can be executed for vairous steps.
+- The function sets up Azure Batch jobs and tasks for simulation and gather steps. **Note:** This functionality is still dependent on the user to create parts of the script that `experiment.run_index()` and `update_abcsmc_img()`.
 
 Running the function with an experiment that has `azure_batch` stored as `false`
-- If `local_compress` is `True`, the function processes simulation bundles for the current step without compressing the experiment.
 - It iterates through the simulation indices in the current bundle and processes simulation data using the `products_from_index` function.
 - After processing all simulations for the step, the function resamples the experiment for the next ABC SMC step using the provided perturbation kernels.
-
+- If the `save` parameter is `True`, the function creates an `experiment_history.pkl` file.
 ---
 
 ### `create_scenario_subexperiments`
