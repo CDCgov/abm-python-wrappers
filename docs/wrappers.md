@@ -6,21 +6,6 @@ The `wrappers.py` file contains utility functions and methods for managing simul
 
 ## Functions
 
-### `run_step_return_sims`
-
-#### Description
-Creates simulation data by running simulations and processing results. Writes simulation data to Parquet files.
-
-#### Parameters:
-- `experiment` (`Experiment`): The experiment object containing simulation data.
-- `data_processing_fn` (`Callable`): Function for processing simulation data.
-- `products` (`list`, optional): List of products to generate. Defaults to `["simulations"]`.
-
-#### Returns:
-- `polars.DataFrame`: DataFrame containing simulation results.
-
----
-
 ### `update_abcsmc_img`
 
 #### Description
@@ -59,7 +44,7 @@ The `run_abcsmc` function orchestrates the execution of Approximate Bayesian Com
 
 #### Parameters
 - `experiment` (`Experiment`): The `Experiment` object containing the configuration and data for the ABC SMC workflow.
-- `data_processing_fn` (`Callable`, optional): A function for processing simulation data. Defaults to `None`.
+- `data_read_fn` (`Callable`, optional): A function for processing simulation data. Defaults to `None`.
 - `distance_fn` (`Callable`, optional): A function for calculating distances between simulated and target data. Defaults to `None`.
 - `prior_distribution_dict` (`dict`, optional): A dictionary defining the prior distributions for simulation parameters. Defaults to `None`.
 - `perturbation_kernels` (`dict`, optional): A dictionary defining the perturbation kernels for simulation parameters. Defaults to `None`.
@@ -98,7 +83,7 @@ This function accepts a path to a `pygriddler@v0.3` scenario JSON file and write
 - `experiment` (`Experiemnt`): the overall experiment to create the scenario sub-experiments for.
 - `griddle_path` (`str`, optional): Path to the pygriddler JSON file.
 - `scenario_key` (``str`, optional): Scneairo key used to label the simulation inputs
-- `seed_key` (`str`, optional): name of the variable used to store random seeds for each simulation.
+- `seed_variable_name` (`str`, optional): name of the variable used to store random seeds for each simulation.
 
 #### Behavior
 The function first asks the user, if a data directory for the overall experiment exists, if they would like to proceed. Then the simulation inputs are determined by the pygriddler input file. New sub-experiment config files for each scenario are then created, alongside the base input file for each simulation, into new input folders for each scenario.
@@ -118,9 +103,9 @@ The `wrappers.py` module relies on the following libraries and modules:
 ### Simulate random replicates of an input file
 In many cases, we may just want to call one parameter set many times to produce a set of simulations. In order to do so, we need to provide an `Experiment` with an initialized simulation bundle history, a base input parameter file to draw from, and a `config.yaml` relating the paths as well as number of replicates.
 
-In order to initialize simulation bundle histroy for a new experiment, we can call the `experiment.intialize_simbundle()` method, which will automatically populate a `SimulationBundle` as the zeroeth simulation set of the `Experiment`.
+In order to initialize simulation bundle history for a new experiment, we can call the `experiment.intialize_simbundle()` method, which will automatically populate a `SimulationBundle` as the zeroeth simulation set of the `Experiment`.
 
-This is performed automatically by the wrapper function `run_step_return_data`, which first checks for any simulation bundle history and either calls the current step's inputs to create simulation data or creates the first bundle and then creates the data.
+This is performed automatically by the experiment class method `run_step` which first checks for any simulation bundle history and either calls the current step's inputs to create simulation data or creates the first bundle and then creates the data.
 
 ```python
 def read_fn(outputs_dir):
@@ -137,9 +122,8 @@ experiment = Experiment(
     config_file = "path/to/config.yaml"
 )
 
-simulation_data = wrappers.run_step_return_data(
-    experiment,
-    data_processing_fn=read_fn,
+    experiment.run_step(
+    data_read_fn=read_fn,
 )
 ```
 
@@ -175,9 +159,8 @@ for scenario in os.listdir(scenarios_dir):
         config_file=config_path,
     )
 
-    wrappers.run_step_return_data(
-        experiment=subexperiment,
-        data_processing_fn=read_fn
+    subexperiment.run_step(
+        data_read_fn=read_fn
     )
     experiment.simulation_bundles.update(
         {scenario: subexperiment.simulation_bundles[0]}
@@ -194,7 +177,7 @@ experiment.save(
 )
 ```
 
-Within the for loop of the above example, it would be possible to provide any post processing on the products returned by `run_step_return_data`, or call other wrappers on the `subexperiment` objects, such as `run_abcsmc`, instead of only creating simulations.
+Within the for loop of the above example, it would be possible to provide any post processing on the products returned by `run_step`, or call other wrappers on the `subexperiment` objects, such as `run_abcsmc`, instead of only creating simulations.
 
 We end the example script by compressing the currently stored simulation bundles of each scenario and saving them to the overall experiment, so that they can be called from the upper directory. This is not necessary, but ensures all data is in the same place.
 
@@ -231,7 +214,7 @@ def main(
     wrappers.run_abcsmc(
         experiment=experiment,
         distance_fn=distance_fn,
-        data_processing_fn=output_fn,
+        data_read_fn=output_fn,
     )
 
 
@@ -249,11 +232,11 @@ def task(
     products: list = None,
 ):
     experiment = Experiment(img_file=img_file)
-    wrappers.products_from_index(
+    experiment.run_index(
         simulation_index=simulation_index,
         experiment=experiment,
         distance_fn=distance_pois_lhood,
-        data_processing_fn=output_processing_function,
+        data_read_fn=output_processing_function,
         products=products,
         products_output_dir=products_path,
         clean=clean,

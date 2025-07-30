@@ -662,8 +662,7 @@ class Experiment:
         self,
         filename: str,
         input_dir: str | None = None,
-        data_processing_fn: Callable[[pl.DataFrame], pl.DataFrame]
-        | None = None,
+        data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
     ) -> pl.DataFrame:
@@ -675,7 +674,7 @@ class Experiment:
         Args:
             :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
             :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
-            :param data_processing_fn: A function to preprocess the data before combining it withh other data during reading from CSV.
+            :param data_read_fn: A function to preprocess the data before combining it withh other data during reading from CSV.
                 - If specified with a partitioned parquet file, the function is called on the data set in aggregate.
                 - If called on a CSV file that was written by this method, the data processing function is skipped and the user is informed to run further post processing outside the read results method.
                 - If not specified, defaults to None
@@ -695,19 +694,19 @@ class Experiment:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
                 data = self.parquet_from_path(f"{input_dir}/{filename}/")
-                if data_processing_fn is not None:
+                if data_read_fn is not None:
                     warnings.warn(
                         "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
                         UserWarning,
                     )
-                    data = data_processing_fn(data)
+                    data = data_read_fn(data)
             elif filename.endswith(".csv") or filename.endswith(".CSV"):
                 # Read from a summarized CSV file if it exists
                 data = pl.read_csv(f"{input_dir}/{filename}")
-                if data_processing_fn is not None:
+                if data_read_fn is not None:
                     warnings.warn(
                         "Skipping use of data processing function. "
-                        "The existing CSV file could only have been created by a previous read_results and would have been manipulated by a `data_processing_fn` already. "
+                        "The existing CSV file could only have been created by a previous read_results and would have been manipulated by a `data_read_fn` already. "
                         "If you would like to further process the data, please read the results and manipulate them manually outside the Experiment methods.",
                         UserWarning,
                     )
@@ -719,7 +718,7 @@ class Experiment:
         else:
             # Pre-proceesing fn is applied piece-wise to CSV
             data: pl.DataFrame = utils.read_nested_csvs(
-                input_dir, filename, data_processing_fn
+                input_dir, filename, data_read_fn
             )
 
         if write:
@@ -825,10 +824,13 @@ class Experiment:
         # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
         if seed_variable_name is None:
             seed_variable_name = self.seed_variable_name
-        input_dict[simulation_index][seed_variable_name] = input_dict[
-            simulation_index
-        ].pop("randomSeed")
-
+        if (
+            "randomSeed" in input_dict[simulation_index]
+            and "randomSeed" != self.seed_variable_name
+        ):
+            input_dict[simulation_index][seed_variable_name] = input_dict[
+                simulation_index
+            ].pop("randomSeed")
         # If scenario key is not specified, use the default scenario key
         if scenario_key is None:
             scenario_key = self.scenario_key
@@ -891,9 +893,11 @@ class Experiment:
         # Load the parameter sets
         if isinstance(input_griddle, str):
             with open(input_griddle, "r") as fp:
-                if fp.lower().endswith(".yaml") or fp.lower().endswith(".yml"):
+                if input_griddle.lower().endswith(
+                    ".yaml"
+                ) or input_griddle.lower().endswith(".yml"):
                     raw_griddle = yaml.safe_load(fp)
-                elif fp.lower().endswith(".json"):
+                elif input_griddle.lower().endswith(".json"):
                     raw_griddle = json.load(fp)
                 else:
                     raise NotImplementedError(
@@ -903,7 +907,7 @@ class Experiment:
             raw_griddle = input_griddle
 
         griddle = griddler.parse(raw_griddle)
-        par_sets = griddle.to_dicts()
+        par_sets = griddle
 
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
@@ -1085,7 +1089,7 @@ class Experiment:
             :param simulation_index: integer index of a viable simulation from the cumulative simulation runs across SimulationBundle objects in the experiment history
             :param distance_fn: Distance function supplied that accepts target data and results data
                 The results simulation data must be supplied as a simulation data frame, but the target data
-            :param data_processing_fn: Post-processing function to be applied on raw_outputs
+            :param data_read_fn: Post-processing function to be applied on raw_outputs
             :param products: products parquet files to be created from the post-processing of raw output results,
                 Currently implemented values are `["simulations", "distances"]` for the results and distances attribute of SimulationBundles, respectively
             :param products_output_dir: Output directory path, defaults to the Experiment data.path,
