@@ -831,11 +831,6 @@ class Experiment:
             input_dict[simulation_index][seed_variable_name] = input_dict[
                 simulation_index
             ].pop("randomSeed")
-        else:
-            input_dict[simulation_index][seed_variable_name] = input_dict[
-                simulation_index
-            ].pop(seed_variable_name)
-
         # If scenario key is not specified, use the default scenario key
         if scenario_key is None:
             scenario_key = self.scenario_key
