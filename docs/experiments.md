@@ -27,7 +27,7 @@ Azure and creating save points during the experiment run.
 - `config_file` (`str`, optional): Path to the configuration file. Used to initialize a new experiment. Must be provided alongside an experiments directory.
 - `img_file` (`str`, optional): Path to the compressed experiment file. Used to restore a previously saved experiment.
 - `verbose` (`bool`, default=True): Whether or not to print out some non-critical warnigns and progress statements when operating with the experimnt
-- `**kwargs` : Key word arguments to provide additional parameters orr overwrite config parameters. In particular,
+- `**kwargs` : Key word arguments to provide additional parameters or overwrite config parameters. In particular,
     - `prior_distribution_dict` (`dict`, optional): Dictionary of prior distributions for simulation parameters.
     - `perturbation_kernel_dict` (`dict`, optional): Dictionary of perturbation kernels for simulation parameters.
 
@@ -81,6 +81,7 @@ Parameters are set to `None` or are empty unless specified in the config file
 #### Description:
 Performs lossy compression to create a reproducible savepoint of the experiment. Stores all
 essential information, except simulation bundle results, in a compressed pickle (`.pkl`) file.
+The data path is default if none is provided.
 
 #### Parameters:
 - `output_file` (`str`): Path to the output pickle file containing the compressed experiment.
@@ -113,7 +114,7 @@ file type.
 
 #### Description:
 Initializes the first simulation bundle for the experiment. This is the first step of ABC SMC, a
-single scenario, or all the simualtions from a single parameters set provided.
+single scenario, or all the simulations from a single parameters set provided.
 
 #### Parameters:
 - `prior_distribution_dict` (`dict`, optional): Dictionary of prior distributions for simulation parameters.
@@ -148,7 +149,7 @@ The `run_index` method is responsible for executing a single simulation based on
 #### Parameters
 - **`simulation_index`** (`int`): Index of the simulation to execute.
 - **`distance_fn`** (`Callable`, optional): Function to calculate distances between target data and results.
-- **`data_processing_fn`** (`Callable`, required): Function to process raw simulation outputs.
+- **`data_read_fn`** (`Callable`, required): Function to process raw simulation outputs.
 - **`products`** (`list`, optional): List of products to generate (e.g., `["simulations", "distances"]`).
 - **`products_output_dir`** (`str`, optional): Directory to store output products. Defaults to the experiment's data path.
 - **`scenario_key`** (`str`, optional): Key to access specific scenario parameters.
@@ -160,7 +161,7 @@ The `run_index` method is responsible for executing a single simulation based on
 1. Validates input parameters, ensuring required functions are provided.
 2. Generates input files for the simulation using `write_inputs_index`.
 3. Executes the simulation using a command-line utility.
-4. Processes raw outputs using the provided `data_processing_fn`.
+4. Processes raw outputs using the provided `data_read_fn`.
 5. Updates the `results` attribute of the corresponding `SimulationBundle`.
 6. Saves processed products if `save` is `True`.
 7. Cleans raw output files if `clean` is `True`.
@@ -170,10 +171,10 @@ The `run_index` method is responsible for executing a single simulation based on
 ### Method: `run_step`
 
 #### Description
-The `run_step` method orchestrates the execution of multiple simulations for a specific step in the experiment's history. It ensures all simulations in the step are executed and their results are processed. . It defaults to the current step if none is provided and initializes a new simulation bundle if necessary. For each simulation index within the step, it calls `run_index` to execute and process the simulation, ensuring that all results are generated and stored as specified.
+The `run_step` method orchestrates the execution of multiple simulations for a specific step in the experiment's history. It ensures all simulations in the step are executed and their results are processed. It defaults to the current step if none is provided and initializes a new simulation bundle if necessary. For each simulation index within the step, it calls `run_index` to execute and process the simulation, ensuring that all results are generated and stored as specified.
 
 #### Parameters
-- **`data_processing_fn`** (`Callable`, required): Function to process raw simulation outputs.
+- **`data_read_fn`** (`Callable`, required): Function to process raw simulation outputs.
 - **`distance_fn`** (`Callable`, optional): Function to calculate distances between target data and results.
 - **`products`** (`list`, optional): List of products to generate (e.g., `["simulations"]`).
 - **`step`** (`int`, optional): Step in the experiment history to execute. Defaults to the current step.
@@ -271,7 +272,7 @@ Get the baseline parameters for a specific `Experiment` step, defaulting to the 
 ### Method: `get_default_value`
 
 #### Description
-Returns the default value of a parameter for a given step.Cponvenience method wrappers for `get_default_params`.
+Returns the default value of a parameter for a given step. Convenience method wrappers for `get_default_params`.
 
 #### Parameters
 - **`param`** (str): The string of the parameter name to be retrieved
@@ -413,7 +414,7 @@ experiment = Experiment(
         experiments_directory="tests",
         config_file=config_file
     )
-experiment.run_step(data_processing_fn=my_reader_fn)
+experiment.run_step(data_read_fn=my_reader_fn)
 ```
 
 This will automatically store your output file as a hive-partitioned parquet for easier
@@ -451,7 +452,7 @@ experiment = Experiment(
         experiments_directory="tests",
         config_file=config_file
     )
-experiment.run_step(data_processing_fn=my_complex_fn)
+experiment.run_step(data_read_fn=my_complex_fn)
 ```
 
 Now the compressed `simulations` folder will contain the already processed data.
@@ -491,7 +492,7 @@ experiment = Experiment(
         experiments_directory="tests",
         config_file=config_file
     )
-experiment.run_step(data_processing_fn=my_reader_fn)
+experiment.run_step(data_read_fn=my_reader_fn)
 
 chains = experiment.read_results(filename="transmission_report")
 ```
@@ -518,7 +519,7 @@ def my_postprocessing_fn(chain_data: pl.DataFrame) -> pl.DataFrame:
 
 chains = experiment.read_results(
     filename="transmission_report",
-    data_processing_fn=my_postprocessing_fn,
+    data_read_fn=my_postprocessing_fn,
     write = True,
     partition_by = ["t"]
 )
