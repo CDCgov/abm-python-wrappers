@@ -824,9 +824,12 @@ class Experiment:
         # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
         if seed_variable_name is None:
             seed_variable_name = self.seed_variable_name
-        input_dict[simulation_index][seed_variable_name] = input_dict[
-            simulation_index
-        ].pop(seed_variable_name)
+        if "randomSeed" in input_dict[simulation_index] and "randomSeed" != self.seed_variable_name:
+            input_dict[simulation_index][seed_variable_name] = input_dict[simulation_index].pop("randomSeed")
+        else:
+            input_dict[simulation_index][seed_variable_name] = input_dict[
+                simulation_index
+            ].pop(seed_variable_name)
 
         # If scenario key is not specified, use the default scenario key
         if scenario_key is None:
