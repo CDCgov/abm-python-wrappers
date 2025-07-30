@@ -827,7 +827,7 @@ class Experiment:
             seed_variable_name = self.seed_variable_name
         input_dict[simulation_index][seed_variable_name] = input_dict[
             simulation_index
-        ].pop("randomSeed")
+        ].pop(seed_variable_name)
 
         # If scenario key is not specified, use the default scenario key
         if scenario_key is None:
@@ -891,9 +891,9 @@ class Experiment:
         # Load the parameter sets
         if isinstance(input_griddle, str):
             with open(input_griddle, "r") as fp:
-                if fp.lower().endswith(".yaml") or fp.lower().endswith(".yml"):
+                if input_griddle.lower().endswith(".yaml") or input_griddle.lower().endswith(".yml"):
                     raw_griddle = yaml.safe_load(fp)
-                elif fp.lower().endswith(".json"):
+                elif input_griddle.lower().endswith(".json"):
                     raw_griddle = json.load(fp)
                 else:
                     raise NotImplementedError(
@@ -903,7 +903,7 @@ class Experiment:
             raw_griddle = input_griddle
 
         griddle = griddler.parse(raw_griddle)
-        par_sets = griddle.to_dicts()
+        par_sets = griddle
 
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
