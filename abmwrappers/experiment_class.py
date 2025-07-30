@@ -662,8 +662,7 @@ class Experiment:
         self,
         filename: str,
         input_dir: str | None = None,
-        data_read_fn: Callable[[pl.DataFrame], pl.DataFrame]
-        | None = None,
+        data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
     ) -> pl.DataFrame:
@@ -891,7 +890,9 @@ class Experiment:
         # Load the parameter sets
         if isinstance(input_griddle, str):
             with open(input_griddle, "r") as fp:
-                if input_griddle.lower().endswith(".yaml") or input_griddle.lower().endswith(".yml"):
+                if input_griddle.lower().endswith(
+                    ".yaml"
+                ) or input_griddle.lower().endswith(".yml"):
                     raw_griddle = yaml.safe_load(fp)
                 elif input_griddle.lower().endswith(".json"):
                     raw_griddle = json.load(fp)
