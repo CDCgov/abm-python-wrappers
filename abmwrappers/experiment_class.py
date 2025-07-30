@@ -159,6 +159,7 @@ class Experiment:
             possible_keys = filter(
                 lambda x: "seed" in x or "Seed" in x, params.keys()
             )
+            possible_keys = list(possible_keys)
             if len(possible_keys) == 1:
                 self.seed_variable_name = possible_keys[0]
             else:
