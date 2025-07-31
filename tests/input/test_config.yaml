@@ -1,0 +1,10 @@
+azb:
+  azure_batch: false
+experiment_conditions:
+  replicates_per_particle: 100
+  samples_per_step: 1
+  seed: 12345
+  scenario_key: baseScenario
+local_path:
+  default_params_file: examples/gcm_facemask_azure/input/config.yaml
+  exe_file: target/gcm-seir-mask-1.0.0-SNAPSHOT-jar-with-dependencies.jar
