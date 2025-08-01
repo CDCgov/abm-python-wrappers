@@ -637,7 +637,7 @@ class Experiment:
                     pl.col("simulation") == simulation_index
                 ).write_parquet(inputs_data_part_path + "data.parquet")
 
-    def read_distances(self, input_dir: str = None):
+    def read_distances(self, input_dir: str = None, overwrite: bool = False):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
@@ -650,7 +650,10 @@ class Experiment:
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")
 
-        if hasattr(self.simulation_bundles[self.current_step], "distances"):
+        if (
+            hasattr(self.simulation_bundles[self.current_step], "distances")
+            and not overwrite
+        ):
             raise ValueError(
                 "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
             )
@@ -806,7 +809,7 @@ class Experiment:
                         pl.col("simulation") == simulation_index
                     )
                 )
-            inputs = pl.concat(inputs_list).sort("simulation")
+            inputs = utils._vstack_dfs(inputs_list).sort("simulation")
 
         return inputs
 
@@ -1164,7 +1167,9 @@ class Experiment:
             pl.lit(simulation_index).alias("simulation")
         )
         if hasattr(sim_bundle, "results"):
-            sim_bundle.results = pl.concat([sim_bundle.results, index_df])
+            sim_bundle.results = utils._vstack_dfs(
+                [sim_bundle.results, index_df]
+            )
         else:
             sim_bundle.results = index_df
 

@@ -176,7 +176,7 @@ def update_abcsmc_img(
     experiment = Experiment(img_file=experiment_file)
 
     # Load the distances
-    experiment.read_distances(input_dir=products_path)
+    experiment.read_distances(input_dir=products_path, overwrite=True)
     experiment.resample()
 
     # Save the updated experiment
