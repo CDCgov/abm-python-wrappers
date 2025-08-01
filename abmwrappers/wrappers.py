@@ -201,6 +201,7 @@ def run_abcsmc(
     files_to_upload: list[str] | str | None = [],
     scenario_key: str = None,
     ask_overwrite: bool = True,
+    use_existing_distances: bool = False,
     keep_all_sims: bool = False,
     save: bool = True,
 ):
@@ -293,10 +294,18 @@ def run_abcsmc(
             experiment.sub_experiment_name,
         )
 
+        if use_existing_distances:
+            stored_distances = experiment.parquet_from_path(
+                f"{experiment.sub_experiment_name}/data/distances/"
+            )
+            if experiment.verbose:
+                print(
+                    "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                )
+
         gather_task_id = None
         for step, tolerance in experiment.tolerance_dict.items():
-            tasks_id_range = []
-
+            task_ids = []
             if step == max(experiment.tolerance_dict.keys()) or keep_all_sims:
                 products = ["distances", "simulations"]
             else:
@@ -306,18 +315,26 @@ def run_abcsmc(
                 realized_sim_index = (
                     simulation_index + step * experiment.n_simulations
                 )
-                task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -i /{blob_experiment_path} -d /{blob_data_path} --clean --products "
-                task_i_cmd += " ".join(products)
+                # Either run regardless or do quickj eval to keep previous distances
+                if use_existing_distances:
+                    run_sim = stored_distances.filter(
+                        pl.col("simulation") == realized_sim_index
+                    ).is_empty()
+                else:
+                    run_sim = True
 
-                sim_task_id = client.add_task(
-                    job_id=job_name,
-                    docker_cmd=task_i_cmd,
-                    depends_on=gather_task_id,
-                )
-                if simulation_index in (0, experiment.n_simulations - 1):
-                    tasks_id_range.append(sim_task_id)
+                if run_sim:
+                    task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -i /{blob_experiment_path} -d /{blob_data_path} --clean --products "
+                    task_i_cmd += " ".join(products)
 
-            task_range = tuple(tasks_id_range)
+                    sim_task_id = client.add_task(
+                        job_id=job_name,
+                        docker_cmd=task_i_cmd,
+                        depends_on=gather_task_id,
+                    )
+                    task_ids.append(sim_task_id)
+
+            task_range = (min(task_ids), max(task_ids))
             gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
 
             gather_task_id = client.add_task(
