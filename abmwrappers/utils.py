@@ -609,6 +609,7 @@ def read_parquet_blob(
     azb_config: dict,
     cred: object,
     clean: bool = True,
+    store_path: str | None = None,
 ) -> pl.DataFrame:
     """
     Read a parquet file from an Azure Blob Storage container and return it as a Polars DataFrame.
@@ -627,8 +628,12 @@ def read_parquet_blob(
     if clean:
         local_path = tempfile.TemporaryDirectory()
     else:
-        local_path = f"/{blob_data_path}"
-        os.makedirs(local_path)
+        if store_path is None:
+            local_path = f"/{blob_data_path}"
+        else:
+            local_path = store_path
+        os.makedirs(local_path, exist_ok=True)
+
     blob_helpers.download_directory(
         container_name=container_name,
         src_path=blob_data_path,
