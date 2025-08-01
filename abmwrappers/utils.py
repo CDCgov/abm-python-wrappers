@@ -626,7 +626,7 @@ def read_parquet_blob(
         azb_config, cred
     )
     if clean:
-        local_path = tempfile.TemporaryDirectory()
+        local_path = tempfile.mkdtemp()
     else:
         if store_path is None:
             local_path = f"/{blob_data_path}"
