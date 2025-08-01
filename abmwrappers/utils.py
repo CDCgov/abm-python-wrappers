@@ -4,6 +4,7 @@ import itertools
 import json
 import os
 import subprocess
+import tempfile
 import warnings
 from typing import Callable, Tuple
 
@@ -623,9 +624,11 @@ def read_parquet_blob(
     blob_service_client = blob_helpers.get_blob_service_client(
         azb_config, cred
     )
-
-    local_path = f"/{blob_data_path}"
-    os.makedirs(local_path)
+    if clean:
+        local_path = tempfile.TemporaryDirectory()
+    else:
+        local_path = f"/{blob_data_path}"
+        os.makedirs(local_path)
     blob_helpers.download_directory(
         container_name=container_name,
         src_path=blob_data_path,
