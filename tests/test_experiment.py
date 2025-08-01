@@ -29,7 +29,7 @@ def test_compress_and_restore():
     assert_frame_equal(init_bundle.inputs, restored_bundle.inputs)
     assert init_bundle.status == restored_bundle.status
     assert init_bundle.merge_history == restored_bundle.merge_history
-    assert init_bundle.weights == restored_bundle.weights
+    assert_frame_equal(init_bundle.weights, restored_bundle.weights)
     assert init_bundle._step_number == restored_bundle._step_number
     assert init_bundle._baseline_params == restored_bundle._baseline_params
 
