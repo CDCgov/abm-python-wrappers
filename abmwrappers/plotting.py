@@ -234,9 +234,9 @@ def plot_posterior_distribution(
 def plot_posterior_distribution_2d(
     experiment: Experiment,
     parameters: list[str] | str | None = None,
-    visualization_methods: list[str] | str = ["violin", "box"],
+    visualization_methods: list[str] | str = "scatter",
+    visualization_methods_marginal: list[str] | str = "density",
     include_priors: bool = False,
-    dependent_variable: str | None = None,
     include_previous_steps: list[int] | int | bool = False,
     limit_to_accepted: bool = False,
     ax: plt.Axes | None = None,
@@ -274,13 +274,12 @@ def plot_posterior_distribution_2d(
     if include_priors and 0 not in include_steps:
         include_steps.extend([0])
         
-    if len(parameters) == 1 and dependent_variable is None:
+    if len(parameters) == 1:
         plot_posterior_distribution(
             experiment=experiment, 
             parameters=parameters, 
-            visualization_methods=visualization_methods, 
-            include_priors=include_priors, 
-            dependent_variable=dependent_variable, 
+            visualization_methods=visualization_methods_marginal, 
+            include_priors=include_priors,
             include_previous_steps=include_previous_steps,
             limit_to_accepted=limit_to_accepted,
             ax=ax,
