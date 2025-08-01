@@ -38,8 +38,7 @@ def run_model_command_line(
         subprocess.run(
             cmd,
             check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            capture_output=True
         )
     else:
         raise ValueError(

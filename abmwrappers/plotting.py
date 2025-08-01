@@ -314,11 +314,19 @@ def plot_posterior_distribution_2d(
             id_cols + [experiment.seed_variable_name]
         ).columns
 
-    input_data = input_data.select(id_cols + parameters).unpivot(
-        index=id_cols, variable_name="parameter"
-    )
+    input_data = input_data.select(id_cols + parameters)
 
     if visualization_methods is not None and not isinstance(
         visualization_methods, list
     ):
         visualization_methods = [visualization_methods]
+        
+    if len(include_steps) > 1:
+        hue = "step"
+    else:
+        hue = None
+
+    if len(parameters) == 2:
+        sns.jointplot(data=input_data, x=parameters[0], y = parameters[1], hue = hue)
+    else:
+        sns.pairplot(data=input_data.drop("simulation"),hue=hue)
