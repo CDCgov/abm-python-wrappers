@@ -296,7 +296,8 @@ def run_abcsmc(
 
         if use_existing_distances:
             stored_distances = experiment.parquet_from_path(
-                f"{experiment.sub_experiment_name}/data/distances/"
+                f"{experiment.sub_experiment_name}/data/distances/",
+                verbose=False,
             )
             if experiment.verbose:
                 print(
