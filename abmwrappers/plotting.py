@@ -1,4 +1,5 @@
 from math import floor, sqrt
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import polars as pl
@@ -6,19 +7,47 @@ import seaborn as sns
 
 from abmwrappers.experiment_class import Experiment
 
+
+def _get_valid_viz(dim: Literal[1, 2]):
+    opts = [
+        "boxplot",
+        "density",
+        "violin",
+        "histogram",
+        "scatter",
+        "violin",
+        "quantiles",
+        "point_estimate",
+    ]
+    if dim == 1:
+        return opts
+    else:
+        opts.remove("boxplot")
+        opts.remove("violin")
+        return opts
+
+
+def _validate_viz(methods: list[str], dim: Literal[1, 2]):
+    valid = _get_valid_viz(dim)
+    for method in methods:
+        if method not in valid:
+            raise ValueError(
+                f"Invalid method {method} passed to plot for {dim}D data. Please only select from {valid}."
+            )
+
+
 def plot_posterior_distribution(
     experiment: Experiment,
     parameters: list[str] | str | None = None,
-    visualization_methods: list[str] | str = ["violin", "box"],
+    visualization_methods: list[str] | str = ["violin", "boxplot"],
     include_priors: bool = False,
     dependent_variable: str | None = None,
     include_previous_steps: list[int] | int | bool = False,
     limit_to_accepted: bool = False,
     facet_by: list[str] | str | None = None,
-    ax: plt.Axes | None = None,
     show: bool = True,
     save_file: str | None = None,
-) -> plt.Axes:
+):
     """
     Function to plot the distribution of particular parameters over the experiment.
     Args:
@@ -84,6 +113,8 @@ def plot_posterior_distribution(
         visualization_methods, list
     ):
         visualization_methods = [visualization_methods]
+
+    _validate_viz(visualization_methods, 1)
 
     # Correct facet_by to improve visualization
     if facet_by is not None:
@@ -228,7 +259,6 @@ def plot_posterior_distribution(
         plt.show()
     if save_file is not None:
         plt.savefig(save_file)
-    return g.ax
 
 
 def plot_posterior_distribution_2d(
@@ -239,10 +269,9 @@ def plot_posterior_distribution_2d(
     include_priors: bool = False,
     include_previous_steps: list[int] | int | bool = False,
     limit_to_accepted: bool = False,
-    ax: plt.Axes | None = None,
     show: bool = True,
     save_file: str | None = None,
-) -> plt.Axes:
+):
     """
     Function to plot the distribution of particular parameters over the experiment.
     Args:
@@ -273,18 +302,17 @@ def plot_posterior_distribution_2d(
             include_steps = [experiment.current_step]
     if include_priors and 0 not in include_steps:
         include_steps.extend([0])
-        
+
     if len(parameters) == 1:
         plot_posterior_distribution(
-            experiment=experiment, 
-            parameters=parameters, 
-            visualization_methods=visualization_methods_marginal, 
+            experiment=experiment,
+            parameters=parameters,
+            visualization_methods=visualization_methods_marginal,
             include_priors=include_priors,
             include_previous_steps=include_previous_steps,
             limit_to_accepted=limit_to_accepted,
-            ax=ax,
             show=show,
-            save_file=save_file
+            save_file=save_file,
         )
 
     # Collect input data
@@ -319,13 +347,39 @@ def plot_posterior_distribution_2d(
         visualization_methods, list
     ):
         visualization_methods = [visualization_methods]
-        
+
+    _validate_viz(visualization_methods, 2)
+
+    if visualization_methods_marginal is not None and not isinstance(
+        visualization_methods_marginal, list
+    ):
+        visualization_methods_marginal = [visualization_methods_marginal]
+
+    _validate_viz(visualization_methods_marginal, 1)
+
     if len(include_steps) > 1:
         hue = "step"
     else:
         hue = None
 
     if len(parameters) == 2:
-        sns.jointplot(data=input_data, x=parameters[0], y = parameters[1], hue = hue)
+        g = sns.jointplot(
+            data=input_data, x=parameters[0], y=parameters[1], hue=hue
+        )
     else:
-        sns.pairplot(data=input_data.drop("simulation"),hue=hue)
+        g = sns.PairGrid(data=input_data.drop("simulation"))
+
+        # Plots along the main diagonal
+        if "histogram" in visualization_methods_marginal:
+            g.map_diag(
+                sns.histplot,
+                kde=("density" in visualization_methods_marginal),
+                hue=hue,
+            )
+        elif "density" in visualization_methods_marginal:
+            g.map_diag(sns.kdeplot, fill=True, hue=hue)
+
+    if show:
+        plt.show()
+    if save_file is not None:
+        plt.savefig(save_file)
