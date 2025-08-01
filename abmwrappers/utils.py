@@ -417,6 +417,8 @@ def params_grid_search(param_dict):
     df = pl.DataFrame(param_combinations)
     return df
 
+def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
+    return pl.concat([df.select(sorted(df.columns)) for df in dfs])
 
 def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
     """
