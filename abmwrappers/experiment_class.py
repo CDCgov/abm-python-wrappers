@@ -773,12 +773,30 @@ class Experiment:
             )
             return baseline_params[self.scenario_key]
 
-    def get_default_value(self, param: str, step: int | None = None):
+    def get_default_value(self, param: str | dict, step: int | None = None):
         """
         Get the value of a specific parameter for a specific step in the experiment history.
+        The parameter can be specified as a single string
+        Hierarchical parameters can be retrieved with a nested dictionary or SEPARATOR string, or list
+        >>> param={'my_distribution': {'norm': {'mean'}}}
+        >>> param='my_distribution>>>norm>>>mean'
         If no step is specified, returns the value for the current step.
         """
         baseline_params = self.get_default_params(step)
+
+        if utils.FLATTENED_PARAM_CONNECTOR in param or isinstance(param, dict):
+            baseline_params = utils.flatten_dict(baseline_params)
+
+        if isinstance(param, dict):
+            param_dict = utils.flatten_dict(param)
+            keys = list(param_dict.keys())
+            if len(keys) > 1:
+                raise ValueError(
+                    "Cannot obtain more than one default parameter value at once. Use self.get_default_params() for all values as dict"
+                )
+            k = keys[0]
+            v = str(param_dict[k]).replace("{'", "").replace("'}", "")
+            param = f"{k}{utils.FLATTENED_PARAM_CONNECTOR}{v}"
         if param not in baseline_params:
             raise ValueError(
                 f"Parameter {param} not found in baseline parameters for step {step}."
