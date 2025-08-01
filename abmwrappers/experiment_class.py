@@ -1243,6 +1243,8 @@ class Experiment:
                 exe_file=self.exe_file,
                 model_type=self.model_type,
             )
+        
+        cmd = ["RUST_BACKTRACE=1"] + cmd
 
         utils.run_model_command_line(cmd, model_type=self.model_type)
 
