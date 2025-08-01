@@ -237,6 +237,9 @@ def plot_posterior_distribution(
                     hue = None
                 else:
                     hue = "parameter"
+        else:
+            hue=None
+            col_Wrap=None
         g = sns.FacetGrid(
             input_data,
             col=facet_by[0],
@@ -303,6 +306,16 @@ def plot_posterior_distribution_2d(
     if include_priors and 0 not in include_steps:
         include_steps.extend([0])
 
+    # Repair parameters list
+    id_cols = ["simulation", "step"]
+    if parameters is not None:
+        if not isinstance(parameters, list):
+            parameters = [parameters]
+    else:
+        parameters = input_data.drop(
+            id_cols + [experiment.seed_variable_name]
+        ).columns
+
     if len(parameters) == 1:
         plot_posterior_distribution(
             experiment=experiment,
@@ -330,16 +343,6 @@ def plot_posterior_distribution_2d(
         .map_elements(experiment.step_from_index, return_dtype=pl.Int64)
         .alias("step")
     )
-
-    # Repair parameters list
-    id_cols = ["simulation", "step"]
-    if parameters is not None:
-        if not isinstance(parameters, list):
-            parameters = [parameters]
-    else:
-        parameters = input_data.drop(
-            id_cols + [experiment.seed_variable_name]
-        ).columns
 
     input_data = input_data.select(id_cols + parameters)
 
@@ -378,6 +381,11 @@ def plot_posterior_distribution_2d(
             )
         elif "density" in visualization_methods_marginal:
             g.map_diag(sns.kdeplot, fill=True, hue=hue)
+        else:
+            raise NotImplementedError("only density and histogram are implemented")
+
+        if "histogram" in visualization_methods:
+            g.map_lower()
 
     if show:
         plt.show()
