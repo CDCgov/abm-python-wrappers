@@ -1323,6 +1323,11 @@ class Experiment:
                 f"Distances in step {self.current_step} have: Min={dtmp.quantile(0.0)}, Q1={dtmp.quantile(0.25)}, Q2={dtmp.quantile(0.5)}, Q3={dtmp.quantile(0.75)}"
             )
 
+        if current_bundle.get_accepted().is_empty():
+            raise ValueError(
+                "No accepted simulations found in the current step. Cannot resample. Examine the distribution of distances and re-specify tolerance dictionary."
+            )
+
         if self.current_step > 0:
             prev_bundle: SimulationBundle = self.simulation_bundles[
                 self.current_step - 1
@@ -1351,11 +1356,6 @@ class Experiment:
                     pl.col("acceptance_weight") / pl.sum("acceptance_weight")
                 ).alias("weight")
             ).select(["simulation", "weight"])
-
-        if current_bundle.get_accepted().is_empty():
-            raise ValueError(
-                "No accepted simulations found in the current step. Cannot resample. Examine the distribution of distances and re-specify tolerance dictionary."
-            )
 
         new_inputs = abc_methods.resample(
             accepted_simulations=current_bundle.get_accepted(),
