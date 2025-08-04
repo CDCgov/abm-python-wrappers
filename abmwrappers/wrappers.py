@@ -368,13 +368,38 @@ def run_abcsmc(
             else:
                 products = ["distances"]
 
-            experiment.run_step(
-                data_read_fn=data_read_fn,
-                data_filename=data_filename,
-                distance_fn=distance_fn,
-                products=products,
-                scenario_key=scenario_key,
-            )
+            if use_existing_distances:
+                stored_distances = experiment.parquet_from_path(
+                    f"{experiment.sub_experiment_name}/data/distances/"
+                )
+                if experiment.verbose:
+                    print(
+                        "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                    )
+
+                for simulation_index in range(experiment.n_simulations):
+                    realized_sim_index = (
+                        simulation_index + step * experiment.n_simulations
+                    )
+                    if stored_distances.filter(
+                        pl.col("simulation") == realized_sim_index
+                    ).is_empty():
+                        experiment.run_index(
+                            simulation_index=simulation_index,
+                            data_read_fn=data_read_fn,
+                            data_filename=data_filename,
+                            distance_fn=distance_fn,
+                            products=products,
+                            scenario_key=scenario_key,
+                        )
+            else:
+                experiment.run_step(
+                    data_read_fn=data_read_fn,
+                    data_filename=data_filename,
+                    distance_fn=distance_fn,
+                    products=products,
+                    scenario_key=scenario_key,
+                )
 
             # Products_from_index currently adds only one distance at a time
             # We recreate the data loss of update_abcsmc_img here using `del`
