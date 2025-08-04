@@ -613,8 +613,6 @@ class Experiment:
             sim_bundle = self.bundle_from_index(simulation_index)
 
             if "distances" in products:
-                print(sim_bundle.results)
-                print(distance_fn(sim_bundle.results, self.target_data))
                 sim_bundle.calculate_distances(self.target_data, distance_fn)
 
                 distance_data_part_path = (
