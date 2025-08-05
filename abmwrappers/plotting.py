@@ -312,6 +312,22 @@ def plot_posterior_distribution_2d(
     if include_priors and 0 not in include_steps:
         include_steps.extend([0])
 
+    # Collect input data
+    sims = []
+    for step in include_steps:
+        sims.extend(
+            [
+                i + experiment.n_simulations * step
+                for i in range(experiment.n_simulations)
+            ]
+        )
+
+    input_data = experiment.collect_inputs(sims).with_columns(
+        pl.col("simulation")
+        .map_elements(experiment.step_from_index, return_dtype=pl.Int64)
+        .alias("step")
+    )
+
     # Repair parameters list
     id_cols = ["simulation", "step"]
     if parameters is not None:
@@ -333,22 +349,6 @@ def plot_posterior_distribution_2d(
             show=show,
             save_file=save_file,
         )
-
-    # Collect input data
-    sims = []
-    for step in include_steps:
-        sims.extend(
-            [
-                i + experiment.n_simulations * step
-                for i in range(experiment.n_simulations)
-            ]
-        )
-
-    input_data = experiment.collect_inputs(sims).with_columns(
-        pl.col("simulation")
-        .map_elements(experiment.step_from_index, return_dtype=pl.Int64)
-        .alias("step")
-    )
 
     input_data = input_data.select(id_cols + parameters)
 
