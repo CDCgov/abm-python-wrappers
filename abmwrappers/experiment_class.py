@@ -570,10 +570,16 @@ class Experiment:
     # File management
     # --------------------------------------------
 
-    def parquet_from_path(self, path: str) -> pl.DataFrame:
+    def parquet_from_path(
+        self, path: str, verbose: bool = True
+    ) -> pl.DataFrame:
         if self.azure_batch:
             df = utils.read_parquet_blob(
-                self.blob_container_name, path, self.storage_config, self.cred
+                container_name=self.blob_container_name,
+                blob_data_path=path,
+                azb_config=self.storage_config,
+                cred=self.cred,
+                verbose=verbose,
             )
         else:
             df = pl.scan_parquet(path).collect()
@@ -696,13 +702,16 @@ class Experiment:
         """
         # Default to dat path and the simulations parquet file
         if not input_dir:
-            input_dir = self.data_path
+            if self.azure_batch:
+                input_dir = f"{self.sub_experiment_name}/data/"
+            else:
+                input_dir = self.data_path
 
         if partition_by is not None and not isinstance(partition_by, list):
             partition_by = [partition_by]
 
         # Read from hive-paritioned parquet if it exists and filename is not a file
-        if os.path.exists(f"{input_dir}/{filename}"):
+        if os.path.exists(f"{input_dir}/{filename}") or self.azure_batch:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
                 data = self.parquet_from_path(f"{input_dir}/{filename}/")
@@ -1323,11 +1332,6 @@ class Experiment:
                 f"Distances in step {self.current_step} have: Min={dtmp.quantile(0.0)}, Q1={dtmp.quantile(0.25)}, Q2={dtmp.quantile(0.5)}, Q3={dtmp.quantile(0.75)}"
             )
 
-        if current_bundle.get_accepted().is_empty():
-            raise ValueError(
-                "No accepted simulations found in the current step. Cannot resample. Examine the distribution of distances and re-specify tolerance dictionary."
-            )
-
         if self.current_step > 0:
             prev_bundle: SimulationBundle = self.simulation_bundles[
                 self.current_step - 1
@@ -1356,6 +1360,11 @@ class Experiment:
                     pl.col("acceptance_weight") / pl.sum("acceptance_weight")
                 ).alias("weight")
             ).select(["simulation", "weight"])
+
+        if current_bundle.get_accepted().is_empty():
+            raise ValueError(
+                "No accepted simulations found in the current step. Cannot resample. Examine the distribution of distances and re-specify tolerance dictionary."
+            )
 
         new_inputs = abc_methods.resample(
             accepted_simulations=current_bundle.get_accepted(),
