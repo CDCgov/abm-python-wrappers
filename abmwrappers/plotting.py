@@ -382,17 +382,16 @@ def plot_posterior_distribution_2d(
             to_drop = "simulation"
         else:
             to_drop = id_cols
-        g = sns.PairGrid(data=input_data.drop(to_drop))
+        g = sns.PairGrid(data=input_data.drop(to_drop), hue=hue)
 
         # Plots along the main diagonal
         if "histogram" in visualization_methods_marginal:
             g.map_diag(
                 sns.histplot,
                 kde=("density" in visualization_methods_marginal),
-                hue=hue,
             )
         elif "density" in visualization_methods_marginal:
-            g.map_diag(sns.kdeplot, fill=True, hue=hue)
+            g.map_diag(sns.kdeplot, fill=True)
         else:
             raise NotImplementedError(
                 "only density and histogram are implemented"
@@ -402,18 +401,17 @@ def plot_posterior_distribution_2d(
             g.map_lower(
                 sns.histplot,
                 kde=("density" in visualization_methods),
-                hue=hue,
                 fill=True,
             )
             if "scatter" in visualization_methods:
-                g.map_upper(sns.scatterplot, hue=hue)
+                g.map_upper(sns.scatterplot)
         elif "density" in visualization_methods:
-            g.map_lower(sns.kdeplot, fill=True, hue=hue)
+            g.map_lower(sns.kdeplot, fill=True)
             if "scatter" in visualization_methods:
-                g.map_upper(sns.scatterplot, hue=hue)
+                g.map_upper(sns.scatterplot)
         elif "scatter" in visualization_methods:
-            g.map_lower(sns.scatterplot, hue=hue)
-            g.map_upper(sns.scatterplot, hue=hue)
+            g.map_lower(sns.scatterplot)
+            g.map_upper(sns.scatterplot)
 
     if show:
         plt.show()
