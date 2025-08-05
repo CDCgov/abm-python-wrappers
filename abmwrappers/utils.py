@@ -423,7 +423,16 @@ def params_grid_search(param_dict):
 
 
 def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
-    return pl.concat([df.select(sorted(df.columns)) for df in dfs])
+    """
+    Flexibly stack multiple dataframes together using most generous possbile concatenation
+    Args:
+    dfs: a list of polars DataFrames to combine
+    Returns:
+    concatenated DataFrame that has coerced all types with comon column names to same type and filled missing values with nulls.
+    """
+    return pl.concat(
+        [df.select(sorted(df.columns)) for df in dfs], how="diagonal_relaxed"
+    )
 
 
 def df_to_simulation_dict(df):
