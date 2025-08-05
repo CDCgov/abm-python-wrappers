@@ -246,24 +246,25 @@ def plot_posterior_distribution(
                 sharex = ["row", "col"][step_aspect]
             else:
                 sharex=False
+        print(f"facet {facet_type} calls hue {hue}")
         g = sns.FacetGrid(
             input_data,
             col=facet_by[0],
             row=facet_by[1],
             col_wrap=col_wrap,
             sharex=sharex,
+            hue=hue
         )
         if "histogram" in visualization_methods:
             g.map_dataframe(
                 sns.histplot,
                 x="value",
-                hue=hue,
                 kde=("density" in visualization_methods),
             )
             if "scatter" in visualization_methods:
                 g.map_dataframe(sns.rugplot, x="value")
         elif "density" in visualization_methods:
-            g.map_dataframe(sns.kdeplot, x="value", hue=hue, fill=True)
+            g.map_dataframe(sns.kdeplot, x="value", fill=True)
     if show:
         plt.show()
     if save_file is not None:
