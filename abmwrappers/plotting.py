@@ -376,7 +376,11 @@ def plot_posterior_distribution_2d(
             data=input_data, x=parameters[0], y=parameters[1], hue=hue
         )
     else:
-        g = sns.PairGrid(data=input_data.drop("simulation"))
+        if hue is not None:
+            to_drop = "simulation"
+        else:
+            to_drop = id_cols
+        g = sns.PairGrid(data=input_data.drop(to_drop))
 
         # Plots along the main diagonal
         if "histogram" in visualization_methods_marginal:
@@ -391,7 +395,16 @@ def plot_posterior_distribution_2d(
             raise NotImplementedError("only density and histogram are implemented")
 
         if "histogram" in visualization_methods:
-            g.map_lower()
+            g.map_lower(sns.histplot, kde=("density" in visualization_methods), hue=hue, fill=True)
+            if "scatter" in visualization_methods:
+                g.map_upper(sns.scatterplot, hue=hue)
+        elif "density" in visualization_methods:
+            g.map_lower(sns.kdeplot, fill = True, hue = hue)
+            if "scatter" in visualization_methods:
+                g.map_upper(sns.scatterplot, hue=hue)
+        elif "scatter" in visualization_methods:
+            g.map_lower(sns.scatterplot, hue=hue)
+            g.map_upper(sns.scatterplot, hue=hue)
 
     if show:
         plt.show()
