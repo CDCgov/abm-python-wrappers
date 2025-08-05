@@ -335,14 +335,26 @@ def run_abcsmc(
                     )
                     task_ids.append(sim_task_id)
 
-            task_range = (min(task_ids), max(task_ids))
             gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
 
-            gather_task_id = client.add_task(
-                job_id=job_name,
-                docker_cmd=gather_task_cmd,
-                depends_on_range=task_range,
-            )
+            if len(task_ids) == 0:
+                gather_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=gather_task_cmd,
+                )
+            elif len(task_ids) == 1:
+                gather_task_id = client.add_task(
+                    job_id=-job_name,
+                    docker_cmd=gather_task_cmd,
+                    depends_on=[str(x) for x in task_ids],
+                )
+            else:
+                task_range = (min(task_ids), max(task_ids))
+                gather_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=gather_task_cmd,
+                    depends_on_range=task_range,
+                )
 
         client.monitor_job(job_name, timeout=3600)
         client.download_file(
