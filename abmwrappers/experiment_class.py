@@ -703,7 +703,7 @@ class Experiment:
         # Default to dat path and the simulations parquet file
         if not input_dir:
             if self.azure_batch:
-                input_dir = f"{self.sub_experiment_name}/data/"
+                input_dir = f"{self.sub_experiment_name}/data"
             else:
                 input_dir = self.data_path
 
