@@ -237,15 +237,21 @@ def plot_posterior_distribution(
                     hue = None
                 else:
                     hue = "parameter"
+            sharex=False
         else:
             hue=None
-            col_Wrap=None
+            col_wrap=None
+            if "step" in facet_by:
+                step_aspect=facet_by.index("step")
+                sharex = ["row", "col"][step_aspect]
+            else:
+                sharex=False
         g = sns.FacetGrid(
             input_data,
             col=facet_by[0],
             row=facet_by[1],
             col_wrap=col_wrap,
-            sharex=False,
+            sharex=sharex,
         )
         if "histogram" in visualization_methods:
             g.map_dataframe(
