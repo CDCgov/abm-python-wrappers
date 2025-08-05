@@ -418,9 +418,6 @@ def params_grid_search(param_dict):
     return df
 
 def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
-    return pl.concat([df.select(sorted(df.columns)) for df in dfs])
-
-def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
     """
     Flexibly stack multiple dataframes together using most generous possbile concatenation
     Args:
@@ -431,7 +428,6 @@ def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
     return pl.concat(
         [df.select(sorted(df.columns)) for df in dfs], how="diagonal_relaxed"
     )
-
 
 def df_to_simulation_dict(df):
     """

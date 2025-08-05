@@ -123,12 +123,13 @@ def plot_posterior_distribution(
                 facet_by = None
             elif len(facet_by) == 1:
                 facet_by.extend([None])
-            elif len(facet_by) > 2:
+                facet_type = "wrap"
+            elif len(facet_by) == 2:
+                facet_type = "grid"
+            else:
                 raise NotImplementedError(
                     "Plotting does not currently support more than two facet variables"
                 )
-            facet_type = "grid"
-            col_wrap = None
         else:
             facet_by = [facet_by, None]
             facet_type = "wrap"
@@ -237,23 +238,23 @@ def plot_posterior_distribution(
                     hue = None
                 else:
                     hue = "parameter"
-            sharex=False
+            sharex = False
         else:
-            hue=None
-            col_wrap=None
+            hue = None
+            col_wrap = None
             if "step" in facet_by:
-                step_aspect=facet_by.index("step")
+                step_aspect = facet_by.index("step")
                 sharex = ["row", "col"][step_aspect]
             else:
-                sharex=False
-        print(f"facet {facet_type} calls hue {hue}")
+                sharex = False
+
         g = sns.FacetGrid(
             input_data,
             col=facet_by[0],
             row=facet_by[1],
             col_wrap=col_wrap,
             sharex=sharex,
-            hue=hue
+            hue=hue,
         )
         if "histogram" in visualization_methods:
             g.map_dataframe(
@@ -393,14 +394,21 @@ def plot_posterior_distribution_2d(
         elif "density" in visualization_methods_marginal:
             g.map_diag(sns.kdeplot, fill=True, hue=hue)
         else:
-            raise NotImplementedError("only density and histogram are implemented")
+            raise NotImplementedError(
+                "only density and histogram are implemented"
+            )
 
         if "histogram" in visualization_methods:
-            g.map_lower(sns.histplot, kde=("density" in visualization_methods), hue=hue, fill=True)
+            g.map_lower(
+                sns.histplot,
+                kde=("density" in visualization_methods),
+                hue=hue,
+                fill=True,
+            )
             if "scatter" in visualization_methods:
                 g.map_upper(sns.scatterplot, hue=hue)
         elif "density" in visualization_methods:
-            g.map_lower(sns.kdeplot, fill = True, hue = hue)
+            g.map_lower(sns.kdeplot, fill=True, hue=hue)
             if "scatter" in visualization_methods:
                 g.map_upper(sns.scatterplot, hue=hue)
         elif "scatter" in visualization_methods:
