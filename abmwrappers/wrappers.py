@@ -397,7 +397,7 @@ def run_abcsmc(
                         pl.col("simulation") == realized_sim_index
                     ).is_empty():
                         experiment.run_index(
-                            simulation_index=simulation_index,
+                            simulation_index=realized_sim_index,
                             data_read_fn=data_read_fn,
                             data_filename=data_filename,
                             distance_fn=distance_fn,
