@@ -341,6 +341,7 @@ def run_abcsmc(
                 gather_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=gather_task_cmd,
+                    depends_on=gather_task_id,
                 )
             elif len(task_ids) == 1:
                 gather_task_id = client.add_task(
