@@ -335,10 +335,8 @@ def run_abcsmc(
                     )
 
                     # Task ids are often returned as int-coerceable strings, but sometimes not.
-                    # It is more stable to select the first id and update the last id for a range
-                    if not task_ids:
-                        task_ids.append(sim_task_id)
-                    elif len(task_ids) == 1:
+                    # It is more stable to update the second task id for writing a task id range Tuple.
+                    if not task_ids or len(task_ids) == 1:
                         task_ids.append(sim_task_id)
                     else:
                         task_ids[-1] = sim_task_id
