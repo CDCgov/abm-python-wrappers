@@ -333,11 +333,19 @@ def run_abcsmc(
                         docker_cmd=task_i_cmd,
                         depends_on=gather_task_id,
                     )
-                    task_ids.append(sim_task_id)
+
+                    # Task ids are often returned as int-coerceable strings, but sometimes not.
+                    # It is more stable to select the first id and update the last id for a range
+                    if not task_ids:
+                        task_ids.append(sim_task_id)
+                    elif len(task_ids) == 1:
+                        task_ids.append(sim_task_id)
+                    else:
+                        task_ids[-1] = sim_task_id
 
             gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
 
-            if len(task_ids) == 0:
+            if not task_ids:
                 gather_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=gather_task_cmd,
@@ -347,10 +355,10 @@ def run_abcsmc(
                 gather_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=gather_task_cmd,
-                    depends_on=[str(x) for x in task_ids],
+                    depends_on=task_ids,
                 )
             else:
-                task_range = (min(task_ids), max(task_ids))
+                task_range = tuple(task_ids)
                 gather_task_id = client.add_task(
                     job_id=job_name,
                     docker_cmd=gather_task_cmd,
