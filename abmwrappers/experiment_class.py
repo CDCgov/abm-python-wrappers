@@ -740,6 +740,7 @@ class Experiment:
         data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
+        verbose: bool | None = None,
     ) -> pl.DataFrame:
         """
         Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
@@ -758,6 +759,8 @@ class Experiment:
             :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
         """
         # Default to dat path and the simulations parquet file
+        if verbose is None:
+            verbose = self.verbose
         if not input_dir:
             if self.azure_batch:
                 input_dir = f"{self.sub_experiment_name}/data"
@@ -771,7 +774,7 @@ class Experiment:
         if os.path.exists(f"{input_dir}/{filename}") or self.azure_batch:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
-                data = self.parquet_from_path(f"{input_dir}/{filename}/")
+                data = self.parquet_from_path(f"{input_dir}/{filename}/", verbose=verbose)
                 if data_read_fn is not None:
                     warnings.warn(
                         "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
