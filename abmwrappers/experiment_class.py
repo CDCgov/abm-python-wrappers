@@ -579,7 +579,6 @@ class Experiment:
                 blob_data_path=path,
                 azb_config=self.storage_config,
                 cred=self.cred,
-                verbose=verbose,
             )
         else:
             df = pl.scan_parquet(path).collect()
