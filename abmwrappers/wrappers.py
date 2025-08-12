@@ -295,14 +295,21 @@ def run_abcsmc(
         )
 
         if use_existing_distances:
-            stored_distances = experiment.parquet_from_path(
-                f"{experiment.sub_experiment_name}/data/distances/",
-                verbose=False,
+            distances_path = (
+                f"{experiment.sub_experiment_name}/data/distances/"
             )
-            if experiment.verbose:
-                print(
-                    "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
-                )
+            if experiment.blob_directory_exists(distances_path):
+                stored_distances = experiment.parquet_from_path(distances_path)
+                if experiment.verbose:
+                    print(
+                        "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                    )
+            else:
+                use_existing_distances = False
+                if experiment.verbose:
+                    print(
+                        "No existing distances could be found. Starting ABC SMC from first step without supplied distances."
+                    )
 
         gather_task_id = None
         for step, tolerance in experiment.tolerance_dict.items():
@@ -388,13 +395,23 @@ def run_abcsmc(
                 products = ["distances"]
 
             if use_existing_distances:
-                stored_distances = experiment.parquet_from_path(
+                distances_path = (
                     f"{experiment.sub_experiment_name}/data/distances/"
                 )
-                if experiment.verbose:
-                    print(
-                        "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                if os.path.exists(distances_path):
+                    stored_distances = experiment.parquet_from_path(
+                        distances_path
                     )
+                    if experiment.verbose:
+                        print(
+                            "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                        )
+                else:
+                    use_existing_distances = False
+                    if experiment.verbose:
+                        print(
+                            "No existing distances could be found. Starting ABC SMC from first step without supplied distances."
+                        )
 
                 for simulation_index in range(experiment.n_simulations):
                     realized_sim_index = (

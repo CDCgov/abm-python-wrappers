@@ -603,6 +603,17 @@ def get_caller(depth: int = 2) -> str:
     return caller_file
 
 
+def check_virtual_directory_existence(
+    azb_config: dict, cred: object, src_path: str
+) -> bool:
+    blob_service_client = blob_helpers.get_blob_service_client(
+        azb_config, cred
+    )
+    return blob_helpers.check_virtual_directory_existence(
+        blob_service_client, src_path
+    )
+
+
 def read_parquet_blob(
     container_name: str,
     blob_data_path: str,

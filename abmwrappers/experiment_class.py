@@ -585,6 +585,16 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
+    def blob_directory_exists(self, src_path: str) -> bool:
+        if self.azure_batch:
+            return utils.check_virtual_directory_existence(
+                self.storage_config, self.cred, src_path
+            )
+        else:
+            raise ValueError(
+                "Cannot determine if blob directory exists unless azure batch is set to True."
+            )
+
     def store_products(
         self,
         sim_indices: list[int] | int,
