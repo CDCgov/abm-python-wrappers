@@ -604,14 +604,15 @@ def get_caller(depth: int = 2) -> str:
 
 
 def check_virtual_directory_existence(
-    azb_config: dict, cred: object, src_path: str
+    azb_config: dict, cred: object, container_name: str, src_path: str
 ) -> bool:
     blob_service_client = blob_helpers.get_blob_service_client(
         azb_config, cred
     )
-    return blob_helpers.check_virtual_directory_existence(
-        blob_service_client, src_path
+    c_client = blob_service_client.get_container_client(
+        container=container_name
     )
+    return blob_helpers.check_virtual_directory_existence(c_client, src_path)
 
 
 def read_parquet_blob(
