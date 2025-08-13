@@ -266,6 +266,8 @@ def plot_posterior_distribution(
                 g.map_dataframe(sns.rugplot, x="value")
         elif "density" in visualization_methods:
             g.map_dataframe(sns.kdeplot, x="value", fill=True)
+            if "scatter" in visualization_methods:
+                g.map_dataframe(sns.rugplot, x="value")
     if show:
         plt.show()
     if save_file is not None:
