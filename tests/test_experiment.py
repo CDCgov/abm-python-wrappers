@@ -1,5 +1,6 @@
 import os
 
+import polars as pl
 from abctools.abc_classes import SimulationBundle
 from polars.testing import assert_frame_equal
 from scipy.stats import norm
@@ -29,7 +30,7 @@ def test_compress_and_restore():
     assert_frame_equal(init_bundle.inputs, restored_bundle.inputs)
     assert init_bundle.status == restored_bundle.status
     assert init_bundle.merge_history == restored_bundle.merge_history
-    assert init_bundle.weights == restored_bundle.weights
+    assert_frame_equal(init_bundle.weights, restored_bundle.weights)
     assert init_bundle._step_number == restored_bundle._step_number
     assert init_bundle._baseline_params == restored_bundle._baseline_params
 
@@ -67,3 +68,44 @@ def test_init_kwargs_update_parms():
         changed_baseline_params=changed_baseline_params,
     )
     assert changed_baseline_params == experiment.changed_baseline_params
+
+
+def test_get_default_param():
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+    )
+
+    # override native behavior and set simulation bundle manually
+    experiment.simulation_bundles.update(
+        {
+            0: SimulationBundle(
+                inputs=pl.DataFrame(),
+                step_number=0,
+                baseline_params={
+                    "baseScenario": {
+                        "my_distribution": {"norm": {"mean": 0.0, "sd": 1.0}},
+                        "my_scalar": 3.0,
+                    }
+                },
+            )
+        }
+    )
+
+    assert experiment.get_default_value("my_scalar", step=0) == 3.0
+    assert (
+        experiment.get_default_value("my_distribution>>>norm>>>mean", step=0)
+        == 0.0
+    )
+    assert (
+        experiment.get_default_value(
+            {"my_distribution": {"norm": {"mean"}}}, step=0
+        )
+        == 0.0
+    )
+    assert (
+        experiment.get_default_value(
+            {"my_distribution": {"norm": {"sd"}}}, step=0
+        )
+        == 1.0
+    )

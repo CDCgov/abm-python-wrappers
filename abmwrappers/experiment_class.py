@@ -476,9 +476,10 @@ class Experiment:
         history = {}
         for step, bundle in data["skinny_bundles"].items():
             bundle_to_append = SimulationBundle(
-                bundle["inputs"],
-                bundle["_step_number"],
-                bundle["_baseline_params"],
+                inputs=bundle["inputs"],
+                step_number=bundle["_step_number"],
+                baseline_params=bundle["_baseline_params"],
+                seed_variable_name=data["seed_variable_name"],
             )
             if "distances" in bundle:
                 bundle_to_append.distances = bundle["distances"]
@@ -569,10 +570,16 @@ class Experiment:
     # File management
     # --------------------------------------------
 
-    def parquet_from_path(self, path: str) -> pl.DataFrame:
+    def parquet_from_path(
+        self, path: str, verbose: bool = True
+    ) -> pl.DataFrame:
         if self.azure_batch:
             df = utils.read_parquet_blob(
-                self.blob_container_name, path, self.storage_config, self.cred
+                container_name=self.blob_container_name,
+                blob_data_path=path,
+                azb_config=self.storage_config,
+                cred=self.cred,
+                verbose=verbose,
             )
         else:
             df = pl.scan_parquet(path).collect()
@@ -614,8 +621,8 @@ class Experiment:
 
                 # Write the distance data to a Parquet file with part path storing the simulation column
                 os.makedirs(distance_data_part_path, exist_ok=True)
-                pl.DataFrame(
-                    {"distance": sim_bundle.distances[simulation_index]}
+                sim_bundle.distances.filter(
+                    pl.col("simulation") == simulation_index
                 ).write_parquet(distance_data_part_path + "data.parquet")
 
             if "simulations" in products:
@@ -625,18 +632,18 @@ class Experiment:
 
                 # Write the simulation data to a Parquet file with part path storing the simulation column
                 os.makedirs(simulation_data_part_path, exist_ok=True)
-                sim_bundle.results[simulation_index].write_parquet(
-                    simulation_data_part_path + "data.parquet"
-                )
+                sim_bundle.results.filter(
+                    pl.col("simulation") == simulation_index
+                ).write_parquet(simulation_data_part_path + "data.parquet")
             if "params" in products:
                 inputs_data_part_path = (
                     f"{output_dir}/params/simulation={simulation_index}/"
                 )
-                sim_bundle.inputs[simulation_index].write_parquet(
-                    inputs_data_part_path + "data.parquet"
-                )
+                sim_bundle.inputs.filter(
+                    pl.col("simulation") == simulation_index
+                ).write_parquet(inputs_data_part_path + "data.parquet")
 
-    def read_distances(self, input_dir: str = None):
+    def read_distances(self, input_dir: str = None, overwrite: bool = False):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
@@ -649,15 +656,25 @@ class Experiment:
         if distances.is_empty():
             raise ValueError("No distances found in the input directory.")
 
-        if hasattr(self.simulation_bundles[self.current_step], "distances"):
+        if (
+            hasattr(self.simulation_bundles[self.current_step], "distances")
+            and not overwrite
+        ):
             raise ValueError(
                 "Simulation bundle already has distances. Please clear the simulation bundle before reading new distances."
             )
-        self.simulation_bundles[self.current_step].distances = {}
-
-        for k, v in zip(distances["simulation"], distances["distance"]):
-            if self.step_from_index(k) == self.current_step:
-                self.simulation_bundles[self.current_step].distances[k] = v
+        current_distances = (
+            distances.with_columns(
+                pl.col("simulation")
+                .map_elements(self.step_from_index, return_dtype=pl.Int64)
+                .alias("step")
+            )
+            .filter(pl.col("step") == self.current_step)
+            .drop("step")
+        )
+        self.simulation_bundles[
+            self.current_step
+        ].distances = current_distances
 
     def read_results(
         self,
@@ -685,13 +702,16 @@ class Experiment:
         """
         # Default to dat path and the simulations parquet file
         if not input_dir:
-            input_dir = self.data_path
+            if self.azure_batch:
+                input_dir = f"{self.sub_experiment_name}/data"
+            else:
+                input_dir = self.data_path
 
         if partition_by is not None and not isinstance(partition_by, list):
             partition_by = [partition_by]
 
         # Read from hive-paritioned parquet if it exists and filename is not a file
-        if os.path.exists(f"{input_dir}/{filename}"):
+        if os.path.exists(f"{input_dir}/{filename}") or self.azure_batch:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
                 data = self.parquet_from_path(f"{input_dir}/{filename}/")
@@ -762,12 +782,30 @@ class Experiment:
             )
             return baseline_params[self.scenario_key]
 
-    def get_default_value(self, param: str, step: int | None = None):
+    def get_default_value(self, param: str | dict, step: int | None = None):
         """
         Get the value of a specific parameter for a specific step in the experiment history.
+        The parameter can be specified as a single string
+        Hierarchical parameters can be retrieved with a nested dictionary or SEPARATOR string, or list
+        >>> param={'my_distribution': {'norm': {'mean'}}}
+        >>> param='my_distribution>>>norm>>>mean'
         If no step is specified, returns the value for the current step.
         """
         baseline_params = self.get_default_params(step)
+
+        if utils.FLATTENED_PARAM_CONNECTOR in param or isinstance(param, dict):
+            baseline_params = utils.flatten_dict(baseline_params)
+
+        if isinstance(param, dict):
+            param_dict = utils.flatten_dict(param)
+            keys = list(param_dict.keys())
+            if len(keys) > 1:
+                raise ValueError(
+                    "Cannot obtain more than one default parameter value at once. Use self.get_default_params() for all values as dict"
+                )
+            k = keys[0]
+            v = str(param_dict[k]).replace("{'", "").replace("'}", "")
+            param = f"{k}{utils.FLATTENED_PARAM_CONNECTOR}{v}"
         if param not in baseline_params:
             raise ValueError(
                 f"Parameter {param} not found in baseline parameters for step {step}."
@@ -793,22 +831,23 @@ class Experiment:
             inputs_list = []
             for simulation_index in sim_indices:
                 sim_bundle = self.bundle_from_index(simulation_index)
-                inputs_list.append(sim_bundle.inputs[simulation_index])
-            inputs = pl.concat(inputs_list).sort("simulation")
+                inputs_list.append(
+                    sim_bundle.inputs.filter(
+                        pl.col("simulation") == simulation_index
+                    )
+                )
+            inputs = utils._vstack_dfs(inputs_list).sort("simulation")
 
         return inputs
 
     def write_inputs_index(
         self,
         simulation_index: int,
-        seed_variable_name: str | None = None,
         scenario_key: str | None = None,
     ) -> str:
         """
         Write a single simulation's input file
         :param simulation_index: The index of the simulation to write
-        :param seed_variable_name: The name of the random seed column. If None, defaults to the self.seed_variable_name property
-            This parameter should be removed when outdated SimulationBundle methods no longer hard-code a seed variable name of randomSeed
         :param write_inputs_cmd: The command to run that sources outside code to transform
             a base yaml file into readable inputs for execution
             A default of None will return only the formatted inputs from the simulation bundle
@@ -822,16 +861,6 @@ class Experiment:
 
         input_dict = utils.df_to_simulation_dict(sim_bundle.inputs)
 
-        # Temporary workaround for mandatory naming of randomSeed variable in draw_parameters abctools method
-        if seed_variable_name is None:
-            seed_variable_name = self.seed_variable_name
-        if (
-            "randomSeed" in input_dict[simulation_index]
-            and "randomSeed" != self.seed_variable_name
-        ):
-            input_dict[simulation_index][seed_variable_name] = input_dict[
-                simulation_index
-            ].pop("randomSeed")
         # If scenario key is not specified, use the default scenario key
         if scenario_key is None:
             scenario_key = self.scenario_key
@@ -1017,6 +1046,7 @@ class Experiment:
                 n_parameter_sets=self.n_particles,
                 replicates_per_particle=self.replicates,
                 seed=self.seed,
+                seed_variable_name=seed_variable_name,
             )
         else:
             warnings.warn(
@@ -1038,6 +1068,7 @@ class Experiment:
             inputs=input_df,
             step_number=0,
             baseline_params=baseline_params,
+            seed_variable_name=self.seed_variable_name,
         )
 
         # Add simulation bundle to dictionary
@@ -1159,11 +1190,15 @@ class Experiment:
         utils.run_model_command_line(cmd, model_type=self.model_type)
 
         sim_bundle: SimulationBundle = self.bundle_from_index(simulation_index)
-        index_dict = {simulation_index: data_read_fn(simulation_output_path)}
+        index_df = data_read_fn(simulation_output_path).with_columns(
+            pl.lit(simulation_index).alias("simulation")
+        )
         if hasattr(sim_bundle, "results"):
-            sim_bundle.results.update(index_dict)
+            sim_bundle.results = utils._vstack_dfs(
+                [sim_bundle.results, index_df]
+            )
         else:
-            sim_bundle.results = index_dict
+            sim_bundle.results = index_df
 
         if compress:
             self.store_products(
@@ -1310,11 +1345,9 @@ class Experiment:
             tolerance=tolerance,
         )
         if self.verbose:
-            dtmp = pl.DataFrame(
-                {"distances": [v for v in current_bundle.distances.values()]}
-            )
+            dtmp = current_bundle.distances["distance"]
             print(
-                f"Distances in step {self.current_step} have: Min={dtmp.quantile(0.0).item()}, Q1={dtmp.quantile(0.25).item()}, Q2={dtmp.quantile(0.5).item()}, Q3={dtmp.quantile(0.75).item()}"
+                f"Distances in step {self.current_step} have: Min={dtmp.quantile(0.0)}, Q1={dtmp.quantile(0.25)}, Q2={dtmp.quantile(0.5)}, Q3={dtmp.quantile(0.75)}"
             )
 
         if self.current_step > 0:
@@ -1324,31 +1357,35 @@ class Experiment:
             if self.verbose:
                 print("Calculating weights during a resample")
                 print(
-                    f"Using {len([i for i, val in enumerate(current_bundle.acceptance_weights.values()) if val > 0])} nonzero simulation weights"
+                    f"Using {current_bundle.accepted.filter(pl.col('acceptance_weight') > 0.0).select(pl.len()).item()} nonzero simulation weights"
                 )
 
             current_bundle.weights = abc_methods.calculate_weights_abcsmc(
-                current_accepted=current_bundle.accepted,
-                prev_step_accepted=prev_bundle.accepted,
-                prev_weights=prev_bundle.weights,
-                stochastic_acceptance_weights=current_bundle.acceptance_weights,
+                current=current_bundle,
+                previous=prev_bundle,
                 prior_distributions=self.priors,
                 perturbation_kernels=self.perturbation_kernel_dict,
                 normalize=True,
             )
             if self.verbose:
                 print(
-                    f"Calculated {len([i for i, val in enumerate(current_bundle.weights.values()) if val != 0])} nonzero particle weights for step {self.current_step}"
+                    f"Calculated {current_bundle.weights.filter(pl.col('weight') > 0.0).select(pl.len()).item()} nonzero particle weights for step {self.current_step}"
                 )
 
         else:
-            current_bundle.weights = {
-                key: current_bundle.acceptance_weights[key]
-                / sum(current_bundle.acceptance_weights.values())
-                for key in current_bundle.accepted.keys()
-            }
+            current_bundle.weights = current_bundle.accepted.with_columns(
+                (
+                    pl.col("acceptance_weight") / pl.sum("acceptance_weight")
+                ).alias("weight")
+            ).select(["simulation", "weight"])
+
+        if current_bundle.get_accepted().is_empty():
+            raise ValueError(
+                "No accepted simulations found in the current step. Cannot resample. Examine the distribution of distances and re-specify tolerance dictionary."
+            )
+
         new_inputs = abc_methods.resample(
-            accepted_simulations=current_bundle.accepted,
+            accepted_simulations=current_bundle.get_accepted(),
             n_samples=self.n_particles,
             replicates_per_sample=self.replicates,
             perturbation_kernels=self.perturbation_kernel_dict,
@@ -1356,6 +1393,7 @@ class Experiment:
             weights=current_bundle.weights,
             starting_simulation_number=(self.current_step + 1)
             * self.n_simulations,
+            seed_variable_name=self.seed_variable_name,
         )
 
         # Create new simulation bundle
@@ -1363,6 +1401,7 @@ class Experiment:
             inputs=new_inputs,
             step_number=self.current_step + 1,
             baseline_params=current_bundle._baseline_params,
+            seed_variable_name=self.seed_variable_name,
         )
 
         # Add simulation bundle to dictionary

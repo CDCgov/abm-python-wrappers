@@ -422,6 +422,19 @@ def params_grid_search(param_dict):
     return df
 
 
+def _vstack_dfs(dfs: list[pl.DataFrame]) -> pl.DataFrame:
+    """
+    Flexibly stack multiple dataframes together using most generous possbile concatenation
+    Args:
+    dfs: a list of polars DataFrames to combine
+    Returns:
+    concatenated DataFrame that has coerced all types with comon column names to same type and filled missing values with nulls.
+    """
+    return pl.concat(
+        [df.select(sorted(df.columns)) for df in dfs], how="diagonal_relaxed"
+    )
+
+
 def df_to_simulation_dict(df):
     """
     Convert a Polars DataFrame into a simulation dictionary with rows as keys and columns as subkeys.
@@ -674,7 +687,7 @@ def read_nested_csvs(
             # Append and then concatenate
             dfs.append(df)
 
-    return pl.concat(dfs)
+    return _vstack_dfs(dfs)
 
 
 def initialize_azure_client(
