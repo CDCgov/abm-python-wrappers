@@ -8,12 +8,10 @@ import warnings
 from typing import Callable, Tuple
 
 import cfa_azure.blob_helpers as blob_helpers
-import numpy as np
 import polars as pl
 import yaml
 from cfa_azure.clients import AzureClient
 from scipy.stats import truncnorm
-from scipy.stats.qmc import Sobol
 
 # Global character sequence for flattening nested parameters
 FLATTENED_PARAM_CONNECTOR = ">>>"
@@ -473,62 +471,6 @@ def df_to_simulation_dict(df):
         }
 
     return simulation_dict
-
-
-def generate_parameter_samples(
-    params_inputs: dict, n_simulations: int, method: str = "sobol"
-) -> dict:
-    """
-    Generate samples of parameters based on the specified method.
-    Args:
-        params_inputs (dict): Dictionary containing parameters and their ranges as [min, max].
-        n_simulations (int): Number of simulations to perform.
-        method (str): Sampling method to be used ("random" or "sobol").
-    Returns:
-        dict: Dictionary of sampled parameters for each simulation.
-    """
-    warnings.warn(
-        "Function generate_parameter_samples is deprecated and will be removed in a future update.",
-        DeprecationWarning,
-    )
-    # Get the number of parameters
-    num_params = len(params_inputs)
-    # Initialize dictionary to store parameter combinations
-    parameter_combinations = {}
-    if method == "random":
-        # Iterate over each simulation
-        for i in range(n_simulations):
-            combination = {}
-            # Iterate over each parameter key
-            for param_key, param_range in params_inputs.items():
-                # Randomly select a parameter value within the range
-                param_value = np.random.uniform(param_range[0], param_range[1])
-                # Add the parameter key-value pair to the combination dictionary
-                combination[param_key] = param_value
-            # Add the combination dictionary to the parameter combinations dictionary with simulation index as key
-            parameter_combinations[i] = combination
-    elif method == "sobol":
-        # Create a new instance of the Sobol generator
-        sobol = Sobol(d=num_params)
-        # Generate Sobol samples in [0, 1]
-        sobol_samples = sobol.random(n=n_simulations)
-        # Iterate over each simulation
-        for i in range(n_simulations):
-            combination = {}
-            # Iterate over each parameter key and its corresponding sample value from Sobol sequence
-            for j, (param_key, param_range) in enumerate(
-                params_inputs.items()
-            ):
-                # Scale sample value from [0, 1] to [min_value, max_value]
-                param_value = (
-                    param_range[0]
-                    + (param_range[1] - param_range[0]) * sobol_samples[i][j]
-                )
-                # Add the parameter key-value pair to the combination dictionary
-                combination[param_key] = param_value
-            # Add the combination dictionary to the parameter combinations dictionary with simulation index as key
-            parameter_combinations[i] = combination
-    return parameter_combinations
 
 
 def generate_job_name(job_prefix, length_input=64):
