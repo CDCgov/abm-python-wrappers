@@ -299,10 +299,15 @@ def run_abcsmc(
                 f"{experiment.sub_experiment_name}/data/distances/"
             )
             if experiment.blob_directory_exists(distances_path):
-                stored_distances = experiment.parquet_from_path(distances_path)
+                stored_distances = experiment.parquet_from_path(
+                    distances_path, verbose=False
+                )
                 if experiment.verbose:
                     print(
-                        "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                        f"""Re-using previously calculated distances.
+                        Found {stored_distances.height} values.
+                        These are not verified to match inputs.
+                        Please only use for re-running and extending same experiment."""
                     )
             else:
                 use_existing_distances = False
@@ -404,7 +409,10 @@ def run_abcsmc(
                     )
                     if experiment.verbose:
                         print(
-                            "Re-using previously calculated distances. These are not verified to match inputs. Please only use for re-running and extending same experiment."
+                            f"""Re-using previously calculated distances.
+                            Found {stored_distances.height} values.
+                            These are not verified to match inputs.
+                            Please only use for re-running and extending same experiment."""
                         )
                 else:
                     use_existing_distances = False
