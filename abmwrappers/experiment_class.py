@@ -588,13 +588,6 @@ class Experiment:
     def store_products(
         self,
         sim_indices: list[int] | int,
-        distance_fn: Callable[
-            [
-                pl.DataFrame,  # simulation results data
-                pl.DataFrame | dict | float | int,  # target data
-            ],
-            float | int,  # returns
-        ],
         products: list[str] | str | None = None,
         products_output_dir: str | None = None,
     ):
@@ -613,8 +606,6 @@ class Experiment:
             sim_bundle = self.bundle_from_index(simulation_index)
 
             if "distances" in products:
-                sim_bundle.calculate_distances(self.target_data, distance_fn)
-
                 distance_data_part_path = (
                     f"{output_dir}/distances/simulation={simulation_index}/"
                 )
@@ -1200,6 +1191,9 @@ class Experiment:
         else:
             sim_bundle.results = index_df
 
+        if "distances" in products and distance_fn is not None:
+            sim_bundle.calculate_distances(self.target_data, distance_fn)
+
         if compress:
             self.store_products(
                 sim_indices=[simulation_index],
@@ -1255,6 +1249,12 @@ class Experiment:
         if step is None:
             step = self.current_step
 
+        if clean and not compress:
+            warnings.warn(
+                f"The step is set to clean and remove intermediary files without storing results in compressed parquet file format. Ensure that this is intentional. Data created is temporarily available through the SimulationBundle step {step} of the Experiment history",
+                UserWarning,
+            )
+
         # Generate products from current step if it exists or initialize
         if step is not None:
             simbundle = self.simulation_bundles[step]
@@ -1265,14 +1265,24 @@ class Experiment:
         for index in simbundle.inputs["simulation"]:
             self.run_index(
                 simulation_index=index,
-                distance_fn=distance_fn,
+                distance_fn=None,
                 data_read_fn=data_read_fn,
                 data_filename=data_filename,
                 products=products,
                 products_output_dir=products_output_dir,
                 scenario_key=scenario_key,
-                compress=compress,
+                compress=False,
                 clean=clean,
+            )
+
+        # Calculate distance summary metrics and store/clean
+        if "distances" in products:
+            simbundle.calculate_distances(self.target_data, distance_fn)
+        if compress:
+            self.store_products(
+                sim_indices=simbundle.inputs["simulation"],
+                products=products,
+                products_output_dir=products_output_dir,
             )
 
     def resample(
