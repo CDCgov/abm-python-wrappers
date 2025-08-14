@@ -1213,12 +1213,9 @@ class Experiment:
             )
         else:
             sim_bundle.results = index_df
-<<<<<<< HEAD
 
         if "distances" in products and distance_fn is not None:
             sim_bundle.calculate_distances(self.target_data, distance_fn)
-=======
->>>>>>> 0a0abf9 (Reuse distances optionally during abc)
 
         if compress:
             self.store_products(
