@@ -201,6 +201,7 @@ def run_abcsmc(
     files_to_upload: list[str] | str | None = [],
     scenario_key: str = None,
     ask_overwrite: bool = True,
+    use_existing_distances: bool = False,
     keep_all_sims: bool = False,
     save: bool = True,
 ):
@@ -293,10 +294,31 @@ def run_abcsmc(
             experiment.sub_experiment_name,
         )
 
+        if use_existing_distances:
+            distances_path = (
+                f"{experiment.sub_experiment_name}/data/distances/"
+            )
+            if experiment.blob_directory_exists(distances_path):
+                stored_distances = experiment.parquet_from_path(
+                    distances_path, verbose=False
+                )
+                if experiment.verbose:
+                    print(
+                        f"""Re-using previously calculated distances.
+                        Found {stored_distances.height} values.
+                        These are not verified to match inputs.
+                        Please only use for re-running and extending same experiment."""
+                    )
+            else:
+                use_existing_distances = False
+                if experiment.verbose:
+                    print(
+                        "No existing distances could be found. Starting ABC SMC from first step without supplied distances."
+                    )
+
         gather_task_id = None
         for step, tolerance in experiment.tolerance_dict.items():
-            tasks_id_range = []
-
+            task_ids = []
             if step == max(experiment.tolerance_dict.keys()) or keep_all_sims:
                 products = ["distances", "simulations"]
             else:
@@ -306,25 +328,52 @@ def run_abcsmc(
                 realized_sim_index = (
                     simulation_index + step * experiment.n_simulations
                 )
-                task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -i /{blob_experiment_path} -d /{blob_data_path} --clean --products "
-                task_i_cmd += " ".join(products)
+                # Either run regardless or do quickj eval to keep previous distances
+                if use_existing_distances:
+                    run_sim = stored_distances.filter(
+                        pl.col("simulation") == realized_sim_index
+                    ).is_empty()
+                else:
+                    run_sim = True
 
-                sim_task_id = client.add_task(
-                    job_id=job_name,
-                    docker_cmd=task_i_cmd,
-                    depends_on=gather_task_id,
-                )
-                if simulation_index in (0, experiment.n_simulations - 1):
-                    tasks_id_range.append(sim_task_id)
+                if run_sim:
+                    task_i_cmd = f"poetry run python /{task_script} -x run --index {realized_sim_index} -i /{blob_experiment_path} -d /{blob_data_path} --clean --products "
+                    task_i_cmd += " ".join(products)
 
-            task_range = tuple(tasks_id_range)
+                    sim_task_id = client.add_task(
+                        job_id=job_name,
+                        docker_cmd=task_i_cmd,
+                        depends_on=gather_task_id,
+                    )
+
+                    # Task ids are often returned as int-coerceable strings, but sometimes not.
+                    # It is more stable to update the second task id for writing a task id range Tuple.
+                    if not task_ids or len(task_ids) == 1:
+                        task_ids.append(sim_task_id)
+                    else:
+                        task_ids[-1] = sim_task_id
+
             gather_task_cmd = f"poetry run python /{gather_script} -x gather -i /{blob_experiment_path} -d {experiment.sub_experiment_name}/data"
 
-            gather_task_id = client.add_task(
-                job_id=job_name,
-                docker_cmd=gather_task_cmd,
-                depends_on_range=task_range,
-            )
+            if not task_ids:
+                gather_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=gather_task_cmd,
+                    depends_on=gather_task_id,
+                )
+            elif len(task_ids) == 1:
+                gather_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=gather_task_cmd,
+                    depends_on=task_ids,
+                )
+            else:
+                task_range = tuple(task_ids)
+                gather_task_id = client.add_task(
+                    job_id=job_name,
+                    docker_cmd=gather_task_cmd,
+                    depends_on_range=task_range,
+                )
 
         client.monitor_job(job_name, timeout=3600)
         client.download_file(
@@ -350,13 +399,51 @@ def run_abcsmc(
             else:
                 products = ["distances"]
 
-            experiment.run_step(
-                data_read_fn=data_read_fn,
-                data_filename=data_filename,
-                distance_fn=distance_fn,
-                products=products,
-                scenario_key=scenario_key,
-            )
+            if use_existing_distances:
+                distances_path = (
+                    f"{experiment.sub_experiment_name}/data/distances/"
+                )
+                if os.path.exists(distances_path):
+                    stored_distances = experiment.parquet_from_path(
+                        distances_path
+                    )
+                    if experiment.verbose:
+                        print(
+                            f"""Re-using previously calculated distances.
+                            Found {stored_distances.height} values.
+                            These are not verified to match inputs.
+                            Please only use for re-running and extending same experiment."""
+                        )
+                else:
+                    use_existing_distances = False
+                    if experiment.verbose:
+                        print(
+                            "No existing distances could be found. Starting ABC SMC from first step without supplied distances."
+                        )
+
+                for simulation_index in range(experiment.n_simulations):
+                    realized_sim_index = (
+                        simulation_index + step * experiment.n_simulations
+                    )
+                    if stored_distances.filter(
+                        pl.col("simulation") == realized_sim_index
+                    ).is_empty():
+                        experiment.run_index(
+                            simulation_index=realized_sim_index,
+                            data_read_fn=data_read_fn,
+                            data_filename=data_filename,
+                            distance_fn=distance_fn,
+                            products=products,
+                            scenario_key=scenario_key,
+                        )
+            else:
+                experiment.run_step(
+                    data_read_fn=data_read_fn,
+                    data_filename=data_filename,
+                    distance_fn=distance_fn,
+                    products=products,
+                    scenario_key=scenario_key,
+                )
 
             # Products_from_index currently adds only one distance at a time
             # We recreate the data loss of update_abcsmc_img here using `del`

@@ -585,6 +585,29 @@ class Experiment:
             df = pl.scan_parquet(path).collect()
         return df
 
+    def blob_directory_exists(self, src_path: str) -> bool:
+        """
+        Search for a directory wihtin a blob container. The blob container name should not be included in the directory path
+
+        Args:
+        src_path: String label for the directory within the blob to check for existence. Including the blob container name will raise an unimplemented error.
+        """
+        if self.blob_container_name in src_path:
+            raise NotImplementedError(
+                "The blob container name should not be included in the source directory path"
+            )
+        if self.azure_batch:
+            return utils.check_virtual_directory_existence(
+                self.storage_config,
+                self.cred,
+                self.blob_container_name,
+                src_path,
+            )
+        else:
+            raise ValueError(
+                "Cannot determine if blob directory exists unless azure batch is set to True."
+            )
+
     def store_products(
         self,
         sim_indices: list[int] | int,

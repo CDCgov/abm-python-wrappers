@@ -4,6 +4,7 @@ import itertools
 import json
 import os
 import subprocess
+import tempfile
 import warnings
 from typing import Callable, Tuple
 
@@ -552,12 +553,26 @@ def get_caller(depth: int = 2) -> str:
     return caller_file
 
 
+def check_virtual_directory_existence(
+    azb_config: dict, cred: object, container_name: str, src_path: str
+) -> bool:
+    blob_service_client = blob_helpers.get_blob_service_client(
+        azb_config, cred
+    )
+    c_client = blob_service_client.get_container_client(
+        container=container_name
+    )
+    return blob_helpers.check_virtual_directory_existence(c_client, src_path)
+
+
 def read_parquet_blob(
     container_name: str,
     blob_data_path: str,
     azb_config: dict,
     cred: object,
     clean: bool = True,
+    store_path: str | None = None,
+    verbose: bool = True,
 ) -> pl.DataFrame:
     """
     Read a parquet file from an Azure Blob Storage container and return it as a Polars DataFrame.
@@ -573,14 +588,21 @@ def read_parquet_blob(
     blob_service_client = blob_helpers.get_blob_service_client(
         azb_config, cred
     )
+    if clean:
+        local_path = tempfile.mkdtemp()
+    else:
+        if store_path is None:
+            local_path = f"/{blob_data_path}"
+        else:
+            local_path = store_path
+        os.makedirs(local_path, exist_ok=True)
 
-    local_path = f"/{blob_data_path}"
-    os.makedirs(local_path)
     blob_helpers.download_directory(
         container_name=container_name,
         src_path=blob_data_path,
         dest_path=local_path,
         blob_service_client=blob_service_client,
+        verbose=verbose,
     )
     df = pl.read_parquet(local_path)
     if clean:
