@@ -50,6 +50,9 @@ def write_default_cmd(
     model_type: str,
     exe_file: str,
 ) -> list:
+    def needs_rel_path(path: str) -> bool:
+        return not path.startswith("/") and not path.startswith("./")
+
     if model_type == "gcm":
         cmd = [
             "java",
@@ -64,11 +67,12 @@ def write_default_cmd(
         ]
     elif model_type == "ixa":
         # Handle relative paths cases if not specified as absolute
-        if not exe_file.startswith("/"):
+        # ixa pastes strings together so full relative or absolute path must be used
+        if needs_rel_path(exe_file):
             exe_file = "./" + exe_file
-        if not input_file.startswith("/"):
+        if needs_rel_path(input_file):
             input_file = "./" + input_file
-        if not output_dir.startswith("/"):
+        if needs_rel_path(output_dir):
             output_dir = "./" + output_dir
         output_dir = output_dir + "/"
 
@@ -410,6 +414,10 @@ def params_grid_search(param_dict):
 
     """
     # Create all possible combinations of parameters using itertools.product
+    param_dict = flatten_dict(param_dict)
+    for param_array in param_dict.values():
+        if len(param_array) != len(set(param_array)):
+            raise ValueError("Values are not unique for every parameter.")
     keys, values = zip(*param_dict.items())
     param_combinations = [
         dict(zip(keys, v)) for v in itertools.product(*values)
