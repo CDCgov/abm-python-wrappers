@@ -17,6 +17,9 @@ abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
 polars = "^1.6.0"
 griddler = {git = "https://github.com/CDCgov/pygriddler.git"}
 
+[tool.poetry.group.dev.dependencies]
+coverage = "^7.10.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

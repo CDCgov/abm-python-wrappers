@@ -35,4 +35,13 @@ jobs:
         run: |
           poetry install
           eval $(poetry env activate)
-          poetry run pytest -v
+          poetry run coverage run -m pytest
+          poetry run coverage report --format=markdown > report.md
+
+      - name: Add comment to PR
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --body-file report.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
