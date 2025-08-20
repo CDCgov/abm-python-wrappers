@@ -634,7 +634,7 @@ class Experiment:
                     pl.col("simulation") == simulation_index
                 ).write_parquet(inputs_data_part_path + "data.parquet")
 
-    def read_distances(self, input_dir: str = None, overwrite: bool = False):
+    def gather_distances(self, input_dir: str = None, overwrite: bool = False):
         """
         Read distances and simulation results into the simulation bundle history
         Currently yields OSError when called on a mounted blob container input directory
@@ -982,8 +982,32 @@ class Experiment:
                 simulation_index += 1
 
     # --------------------------------------------
-    # Simulation bundles and ABC SMC funcitons
+    # Simulation bundles and ABC SMC functions
     # --------------------------------------------
+
+    @property
+    def distances(self) -> pl.DataFrame:
+        dfs = [
+            bundle.distances.with_columns(pl.lit(step).alias("step"))
+            for step, bundle in self.simulation_bundles.items()
+        ]
+        return utils._vstack_dfs(dfs)
+
+    @property
+    def inputs(self) -> pl.DataFrame:
+        dfs = [
+            bundle.inputs.with_columns(pl.lit(step).alias("step"))
+            for step, bundle in self.simulation_bundles.items()
+        ]
+        return utils._vstack_dfs(dfs)
+
+    @property
+    def weights(self) -> pl.DataFrame:
+        dfs = [
+            bundle.weights.with_columns(pl.lit(step).alias("step"))
+            for step, bundle in self.simulation_bundles.items()
+        ]
+        return utils._vstack_dfs(dfs)
 
     def initialize_simbundle(
         self,
