@@ -671,6 +671,7 @@ class Experiment:
         self,
         filename: str,
         input_dir: str | None = None,
+        output_dir: str | None = None,
         data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
@@ -695,8 +696,9 @@ class Experiment:
         if not input_dir:
             if self.azure_batch:
                 input_dir = f"{self.sub_experiment_name}/data"
+                output_dir = os.path.join(self.directory, "data")
             else:
-                input_dir = self.data_path
+                input_dir = output_dir = self.data_path
 
         if partition_by is not None and not isinstance(partition_by, list):
             partition_by = [partition_by]
@@ -736,14 +738,14 @@ class Experiment:
         if write:
             out_file = filename.split(".")[0]
             if partition_by is not None:
-                os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
+                os.makedirs(f"{output_dir}/{out_file}/", exist_ok=True)
                 data.write_parquet(
-                    f"{input_dir}/{out_file}/",
+                    f"{output_dir}/{out_file}/",
                     use_pyarrow=True,
                     pyarrow_options={"partition_cols": partition_by},
                 )
             else:
-                data.write_csv(f"{input_dir}/{out_file}.csv")
+                data.write_csv(f"{output_dir}/{out_file}.csv")
         return data
 
     # --------------------------------------------
