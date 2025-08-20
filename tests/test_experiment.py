@@ -109,3 +109,65 @@ def test_get_default_param():
         )
         == 1.0
     )
+
+
+def test_collect_history():
+    experiment = Experiment(
+        experiments_directory="tests",
+        config_file="tests/input/test_config.yaml",
+    )
+
+    for step in range(3):
+        bundle = SimulationBundle(
+            inputs=pl.DataFrame(),
+            step_number=step,
+            baseline_params={
+                "baseScenario": {
+                    "my_distribution": {"norm": {"mean": 0.0, "sd": 1.0}},
+                    "my_scalar": 3.0,
+                }
+            },
+        )
+        bundle.distances = pl.DataFrame(
+            {
+                "simulation": [i + 2 * step for i in range(2)],
+                "distance": [0.0] * 2,
+            }
+        )
+        bundle.weights = pl.DataFrame(
+            {
+                "simulation": [i + 2 * step for i in range(2)],
+                "weights": [0.1] * 2,
+            }
+        )
+        bundle.inputs = pl.DataFrame(
+            {
+                "simulation": [i + 2 * step for i in range(2)],
+                "value": [0.2] * 2,
+            }
+        )
+
+        experiment.simulation_bundles.update({step: bundle})
+
+    all_data = pl.DataFrame(
+        {"simulation": [0, 1, 2, 3, 4, 5], "step": [0, 0, 1, 1, 2, 2]}
+    )
+
+    assert_frame_equal(
+        experiment.distances,
+        all_data.with_columns(pl.lit(0.0).alias("distance")),
+        check_dtypes=False,
+        check_column_order=False,
+    )
+    assert_frame_equal(
+        experiment.weights,
+        all_data.with_columns(pl.lit(0.1).alias("weights")),
+        check_dtypes=False,
+        check_column_order=False,
+    )
+    assert_frame_equal(
+        experiment.inputs,
+        all_data.with_columns(pl.lit(0.2).alias("value")),
+        check_dtypes=False,
+        check_column_order=False,
+    )
