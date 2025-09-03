@@ -1018,15 +1018,28 @@ class Experiment:
         if seed_variable_name is None:
             seed_variable_name = self.seed_variable_name
 
-        # Load the parameter set
-        with open(input_griddle, "r") as f:
-            raw_griddle = json.load(f)
-
+        # Load the parameter sets
+        if isinstance(input_griddle, str):
+            with open(input_griddle, "r") as fp:
+                if input_griddle.lower().endswith(
+                    ".yaml"
+                ) or input_griddle.lower().endswith(".yml"):
+                    raw_griddle = yaml.safe_load(fp)
+                elif input_griddle.lower().endswith(".json"):
+                    raw_griddle = json.load(fp)
+                else:
+                    raise NotImplementedError(
+                        "Griddle input from string must be a yaml or json file"
+                    )
+        elif isinstance(input_griddle, dict):
+            raw_griddle = input_griddle
+        # print(f"Raw griddle: {raw_griddle}")
         griddle = griddler.parse(raw_griddle)
         par_sets = griddle
+        # print(f"Parsed griddle: {par_sets}")
 
         sampled_posterior = self.sample_posterior(2)
-        
+        print(sampled_posterior)
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
 
@@ -1041,6 +1054,8 @@ class Experiment:
         os.makedirs(input_dir, exist_ok=True)
         simulation_index = 0
 
+        seeds = random.sample(range(0, 2**32), 2)
+        print(seeds)
         for par in par_sets:
             print(par)
             # Remove the griddler scenario keys from the parameter set
@@ -1050,10 +1065,13 @@ class Experiment:
                     to_remove.append(key)
             for key in to_remove:
                 par.pop(key)
+            counter = 0
             for sample in sampled_posterior:
                 sample_dict = sample.to_dict(as_series=False)
                 for key, value in sample_dict.items():
                     par[key] = value[0]
+                par[seed_variable_name] = seeds[counter]
+                counter += 1
                 print(par)
                 newpars, _summary = utils.combine_params_dicts(
                     baseline_dict=baseline_params,
@@ -1062,41 +1080,51 @@ class Experiment:
                     overwrite_unnested=True,
                     unflatten=unflatten,
                 )
-                # Add the scenario key to the parameter set with replicates if specified
-                for i in range(self.replicates):
-                    if self.replicates > 1:
-                        changed_seed = {
-                            seed_variable_name: random.randint(0, 2**32)
-                        }
-                        newpars, _summary = utils.combine_params_dicts(
-                            baseline_dict=newpars,
-                            new_dict=changed_seed,
-                            scenario_key=scenario_key,
-                            overwrite_unnested=True,
-                            unflatten=unflatten,
-                        )
+                # # Add the scenario key to the parameter set with replicates if specified
+                # for i in range(self.replicates):
+                #     if self.replicates > 1:
+                #         changed_seed = {
+                #             seed_variable_name: random.randint(0, 2**32)
+                #         }
+                #         newpars, _summary = utils.combine_params_dicts(
+                #             baseline_dict=newpars,
+                #             new_dict=changed_seed,
+                #             scenario_key=scenario_key,
+                #             overwrite_unnested=True,
+                #             unflatten=unflatten,
+                #         )
 
-                    input_file_name = (
-                        f"simulation_{simulation_index}.{self.input_file_type}"
-                    )
-                    with open(os.path.join(input_dir, input_file_name), "w") as f:
-                        json.dump(newpars, f, indent=4)
-                    simulation_index += 1
+                input_file_name = (
+                    f"simulation_{simulation_index}.{self.input_file_type}"
+                )
+                with open(os.path.join(input_dir, input_file_name), "w") as f:
+                    json.dump(newpars, f, indent=4)
+                simulation_index += 1
                 
-    def sample_posterior(self, n_samples):
-        max_step = max(self.tolerance_dict.keys())
-        sample_weights = {}
-        for key, value in self.simulation_bundles[max_step].weights.items():
-            sample_weights[key] = value * self.simulation_bundles[max_step].acceptance_weights[key]
-        print(sample_weights)
+    def sample_posterior(experiment, n_samples):
+        max_step = max(experiment.tolerance_dict.keys())
+        sample_dict = {}
+        weights = experiment.simulation_bundles[max_step].weights
+        accepted = experiment.simulation_bundles[max_step].accepted
+        # Join weights and accepted on the "simulation" column
+        joined_df = accepted.join(weights, on="simulation", how="inner")
+        joined_df = joined_df.with_columns(
+            (pl.col("acceptance_weight") * pl.col("weight")).alias("sample_weight")
+        )
+        simulation = joined_df.select("simulation").to_series().to_list()
+        sample_weight = joined_df.select("sample_weight").to_series().to_list()
+        for sim, w in zip(simulation, sample_weight):
+            sample_dict[sim] = w
+        joined_df = joined_df.drop(["acceptance_weight", "distance",
+            "accept_bool", "randomSeed", "weight", "sample_weight"])
+        
         sample_keys = random.choices(
-            population=list(sample_weights.keys()),
-            weights=list(sample_weights.values()),
+            population=list(sample_dict.keys()),
+            weights=list(sample_dict.values()),
             k=n_samples
         )
-        samples = [self.simulation_bundles[max_step].accepted[key] for key in sample_keys]
-        print(samples)
-        return samples   
+        samples = [joined_df.filter(pl.col("simulation") == key).drop(["simulation"]) for key in sample_keys]
+        return samples  
 
     # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
