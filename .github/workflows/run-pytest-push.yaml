@@ -1,8 +1,9 @@
-name: pytest run for coverage
+name: pytest run for main
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
+    branches: [main]
 
 jobs:
   install_and_test:
@@ -33,13 +34,4 @@ jobs:
         run: |
           poetry install
           eval $(poetry env activate)
-          poetry run coverage run -m pytest
-          poetry run coverage report --format=markdown > report.md
-
-      - name: Add comment to PR
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
-            --body-file report.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          poetry run pytest
