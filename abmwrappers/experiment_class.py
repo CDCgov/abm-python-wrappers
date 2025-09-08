@@ -683,7 +683,8 @@ class Experiment:
 
         Args:
             :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
-            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
+            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path for local or Azure implementation
+            :param output_dir: The directory to store processed files in. If not specified, defaults to the same as the input directory on local or the current directory data path for Azure downloads.
             :param data_read_fn: A function to preprocess the data before combining it withh other data during reading from CSV.
                 - If specified with a partitioned parquet file, the function is called on the data set in aggregate.
                 - If called on a CSV file that was written by this method, the data processing function is skipped and the user is informed to run further post processing outside the read results method.
