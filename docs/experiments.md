@@ -241,6 +241,7 @@ Reads simulation results from storage, supporting both nested CSV files and hive
 #### Parameters
 - **`filename`** (`str`, optional): Name of the file to read. Defaults to `"simulations"`.
 - **`input_dir`** (`str`, optional): Directory to read the file from. Defaults to the experiment's data path.
+- **`output_dir`** (`str`, optional): Directory to store the processed files in. Defaults to the experiment's local directory and data folder as a download option for Azure implementations.
 - **`preprocessing_fn`** (`Callable`, optional): Function to preprocess the data during reading.
 - **`write`** (`bool`, optional): Whether to write the data back to storage. Defaults to `False`.
 - **`partition_by`** (`list`, optional): Columns to partition the data by when writing as a Parquet file.

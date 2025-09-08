@@ -671,6 +671,7 @@ class Experiment:
         self,
         filename: str,
         input_dir: str | None = None,
+        output_dir: str | None = None,
         data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
@@ -682,7 +683,8 @@ class Experiment:
 
         Args:
             :param filename: The name of the CSV file or hive-partitioned parquet to read from. If not specified, defaults to "simulations"
-            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path
+            :param input_dir: The directory to read the file from. If not specified, defaults to the experiment data path for local or Azure implementation
+            :param output_dir: The directory to store processed files in. If not specified, defaults to the same as the input directory on local or the current directory data path for Azure downloads.
             :param data_read_fn: A function to preprocess the data before combining it withh other data during reading from CSV.
                 - If specified with a partitioned parquet file, the function is called on the data set in aggregate.
                 - If called on a CSV file that was written by this method, the data processing function is skipped and the user is informed to run further post processing outside the read results method.
@@ -695,8 +697,9 @@ class Experiment:
         if not input_dir:
             if self.azure_batch:
                 input_dir = f"{self.sub_experiment_name}/data"
+                output_dir = os.path.join(self.directory, "data")
             else:
-                input_dir = self.data_path
+                input_dir = output_dir = self.data_path
 
         if partition_by is not None and not isinstance(partition_by, list):
             partition_by = [partition_by]
@@ -736,14 +739,14 @@ class Experiment:
         if write:
             out_file = filename.split(".")[0]
             if partition_by is not None:
-                os.makedirs(f"{input_dir}/{out_file}/", exist_ok=True)
+                os.makedirs(f"{output_dir}/{out_file}/", exist_ok=True)
                 data.write_parquet(
-                    f"{input_dir}/{out_file}/",
+                    f"{output_dir}/{out_file}/",
                     use_pyarrow=True,
                     pyarrow_options={"partition_cols": partition_by},
                 )
             else:
-                data.write_csv(f"{input_dir}/{out_file}.csv")
+                data.write_csv(f"{output_dir}/{out_file}.csv")
         return data
 
     # --------------------------------------------
