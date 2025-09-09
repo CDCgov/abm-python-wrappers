@@ -33,12 +33,7 @@ def run_model_command_line(
             subprocess.run(["cargo", "build", "--release"], check=True)
         if overwrite:
             cmd.append("--force-overwrite")
-        subprocess.run(
-            cmd,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        subprocess.run(cmd, check=True, capture_output=True)
     else:
         raise ValueError(
             f"Unsupported model type: {model_type}. must be 'gcm' or 'ixa'"
