@@ -610,12 +610,19 @@ class Experiment:
 
     def store_products(
         self,
-        sim_indices: list[int] | int,
+        sim_indices: list[int] | pl.Series | int,
         products: list[str] | str | None = None,
         products_output_dir: str | None = None,
     ):
         if not isinstance(sim_indices, list):
-            sim_indices = [sim_indices]
+            if isinstance(sim_indices, pl.Series):
+                sim_indices = sim_indices.to_list()
+            elif isinstance(sim_indices, int):
+                sim_indices = [sim_indices]
+            else:
+                raise NotImplementedError(
+                    "Simulation indices must be specified using int, list[int], or pl.Series"
+                )
 
         if not isinstance(products, list):
             products = [products]
