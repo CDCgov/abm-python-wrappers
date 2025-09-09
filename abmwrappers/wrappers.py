@@ -404,9 +404,7 @@ def run_abcsmc(
                 products = ["distances"]
 
             if use_existing_distances:
-                distances_path = (
-                    f"{experiment.sub_experiment_name}/data/distances/"
-                )
+                distances_path = f"{experiment.data_path}/distances/"
                 if os.path.exists(distances_path):
                     stored_distances = experiment.parquet_from_path(
                         distances_path

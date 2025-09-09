@@ -1227,7 +1227,6 @@ class Experiment:
         if compress:
             self.store_products(
                 sim_indices=[simulation_index],
-                distance_fn=distance_fn,
                 products=products,
                 products_output_dir=products_output_dir,
             )
