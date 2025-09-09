@@ -218,7 +218,7 @@ Stores processed simulation outputs (e.g., distances and simulations) as Parquet
 
 ---
 
-### Method: `read_distances`
+### Method: `gather_distances`
 
 #### Description
 Reads distance data from storage and integrates it into the simulation bundle's history. It validates the presence of distance data and ensures that the current step does not already contain distances before updating the bundle.
@@ -390,7 +390,7 @@ A simple exmaple of manipulating Experiments using save-restore is the
 experiment = Experiment(img_file=experiment_file)
 
 # Load the distances
-experiment.read_distances(input_dir=products_path)
+experiment.gather_distances(input_dir=products_path)
 experiment.resample()
 
 # Save the updated experiment

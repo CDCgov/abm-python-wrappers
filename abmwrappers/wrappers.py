@@ -176,7 +176,7 @@ def update_abcsmc_img(
     experiment = Experiment(img_file=experiment_file)
 
     # Load the distances
-    experiment.read_distances(input_dir=products_path, overwrite=True)
+    experiment.gather_distances(input_dir=products_path, overwrite=True)
     experiment.resample()
 
     # Save the updated experiment
@@ -450,7 +450,7 @@ def run_abcsmc(
             # Products_from_index currently adds only one distance at a time
             # We recreate the data loss of update_abcsmc_img here using `del`
             del experiment.simulation_bundles[step].distances
-            experiment.read_distances(experiment.data_path)
+            experiment.gather_distances(experiment.data_path)
             experiment.resample(perturbation_kernels)
 
         if save:
