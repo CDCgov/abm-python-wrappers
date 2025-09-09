@@ -775,7 +775,9 @@ class Experiment:
         if os.path.exists(f"{input_dir}/{filename}") or self.azure_batch:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
-                data = self.parquet_from_path(f"{input_dir}/{filename}/", verbose=verbose)
+                data = self.parquet_from_path(
+                    f"{input_dir}/{filename}/", verbose=verbose
+                )
                 if data_read_fn is not None:
                     warnings.warn(
                         "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
