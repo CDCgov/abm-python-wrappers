@@ -6,16 +6,16 @@ authors = ["Team CMEI - CDC/OD/ORR/CFA"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.13"
 PyYAML = "^6.0.1"
 pre-commit = "^3.7.1"
 scipy = "^1.14.0"
 pytest = "^8.3.4"
 sobol-seq = "^0.2.0"
-cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
 abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
 polars = "^1.6.0"
 griddler = {git = "https://github.com/CDCgov/pygriddler.git"}
+cfa-cloudops = {git = "https://github.com/CDCgov/cfa-cloudops.git"}
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.10.2"
