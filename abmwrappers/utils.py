@@ -288,6 +288,7 @@ def combine_params_dicts(
     for key, value in new_dict.items():
         if key not in temp_dict:
             if not overwrite_unnested:
+                continue
                 raise Exception(f"'{key}' not present in default params list.")
 
         temp_dict[key] = value

@@ -1125,7 +1125,6 @@ class Experiment:
                     ],
                 }
             )
-
         # Create simulation bundle
         sim_bundle = SimulationBundle(
             inputs=input_df,
@@ -1262,9 +1261,10 @@ class Experiment:
             )
         else:
             sim_bundle.results = index_df
-
+        modifier = sim_bundle.inputs.select(["simulation", "burn_in_period"])
+        
         if "distances" in products and distance_fn is not None:
-            sim_bundle.calculate_distances(self.target_data, distance_fn)
+            sim_bundle.calculate_distances(self.target_data, distance_fn, modifier)
 
         if compress:
             self.store_products(
@@ -1345,10 +1345,10 @@ class Experiment:
                 compress=False,
                 clean=clean,
             )
-
+        modifier = simbundle.inputs.select(["simulation", "burn_in_period"])
         # Calculate distance summary metrics and store/clean
         if "distances" in products:
-            simbundle.calculate_distances(self.target_data, distance_fn)
+            simbundle.calculate_distances(self.target_data, distance_fn, modifier)
         if compress:
             self.store_products(
                 sim_indices=simbundle.inputs["simulation"],
