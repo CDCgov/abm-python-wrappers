@@ -8,10 +8,10 @@ import tempfile
 import warnings
 from typing import Callable, Tuple
 
-import cfa_azure.blob_helpers as blob_helpers
+from cfa.cloudops import blob_helpers as blob_helpers
 import polars as pl
 import yaml
-from cfa_azure.clients import AzureClient
+from cfa.cloudops import CloudClient
 from scipy.stats import truncnorm
 
 # Global character sequence for flattening nested parameters
@@ -724,7 +724,7 @@ def initialize_azure_client(
     print(
         f"Initializing AzureClient with the following config path: {config_path}"
     )
-    client = AzureClient(config_path=config_path)
+    client = CloudClient()
 
     try:
         client.create_blob_container(blob_container_name, blob_container_name)
@@ -762,7 +762,6 @@ def initialize_azure_client(
             )
 
             # Create pool
-            client.set_debugging(debug_mode)
             client.package_and_upload_dockerfile(
                 registry_name=registry_name,
                 repo_name=docker_repo_name,
@@ -770,19 +769,12 @@ def initialize_azure_client(
                 tag=docker_tag,
                 use_device_code=True,
             )
-
-            client.set_pool_info(
-                mode=pool_mode,
+            # autoscale parameter needs to be not hardcoded
+            client.create_pool(pool_name=pool_name, autoscale=True,
                 dedicated_nodes=autoscale_nodes,
                 max_autoscale_nodes=autoscale_nodes,
                 cache_blobfuse=cache_blobfuse,
-                task_slots_per_node=task_slots_per_node,
-            )
-
-            client.create_pool(pool_name=pool_name)
-
-        else:
-            client.set_pool(pool_name)
+                task_slots_per_node=task_slots_per_node,)
 
         return client, blob_container_name, job_prefix
 

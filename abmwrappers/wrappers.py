@@ -5,7 +5,7 @@ from typing import Callable
 
 import polars as pl
 import yaml
-from cfa_azure.clients import AzureClient
+from cfa.cloudops import CloudClient
 
 from abmwrappers import utils
 from abmwrappers.experiment_class import Experiment
@@ -65,7 +65,7 @@ def run_pool_tasks(cmds: list, num_processes: int = 8):
 
 
 def download_outputs(
-    azure_client: AzureClient,
+    azure_client: CloudClient,
     blob_container_name: str,
     dest_path: str,
     src_path: str,
@@ -87,7 +87,7 @@ def download_outputs(
 
     """
 
-    azure_client.download_directory(
+    azure_client.download_folder(
         src_path=src_path,
         dest_path=dest_path,
         container_name=blob_container_name,
@@ -271,7 +271,7 @@ def run_abcsmc(
             )
 
         job_name = utils.generate_job_name(job_prefix)
-        client.add_job(job_name, task_id_ints=True)
+        client.create_job(job_name, task_id_ints=True)
 
         # Identifying file locations wihtin blob storage
         blob_experiment_directory = os.path.join(
