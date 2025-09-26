@@ -13,7 +13,7 @@ scipy = "^1.14.0"
 pytest = "^8.3.4"
 sobol-seq = "^0.2.0"
 cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
-abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
+abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git", branch="etr-burn-in"}
 polars = "^1.6.0"
 griddler = {git = "https://github.com/CDCgov/pygriddler.git"}
 
