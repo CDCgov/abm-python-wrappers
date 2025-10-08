@@ -1,25 +1,30 @@
-[tool.poetry]
+[project]
 name = "abmwrappers"
 version = "0.2.1"
 description = ""
-authors = ["Team CMEI - CDC/OD/ORR/CFA"]
+authors = [{ name = "Team CMEI - CDC/OD/ORR/CFA" }]
+requires-python = "~=3.10"
 readme = "README.md"
+dependencies = [
+    "PyYAML>=6.0.1,<7",
+    "pre-commit>=3.7.1,<4",
+    "scipy>=1.14.0,<2",
+    "pytest>=8.3.4,<9",
+    "sobol-seq>=0.2.0,<0.3",
+    "cfa-azure",
+    "abctools",
+    "polars>=1.6.0,<2",
+    "griddler",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-PyYAML = "^6.0.1"
-pre-commit = "^3.7.1"
-scipy = "^1.14.0"
-pytest = "^8.3.4"
-sobol-seq = "^0.2.0"
-cfa-azure = {git = "https://github.com/CDCgov/cfa_azure.git"}
-abctools = {git = "https://github.com/CDCgov/abc-calibration-tools.git"}
-polars = "^1.6.0"
-griddler = {git = "https://github.com/CDCgov/pygriddler.git"}
+[dependency-groups]
+dev = ["coverage>=7.10.2,<8"]
 
-[tool.poetry.group.dev.dependencies]
-coverage = "^7.10.2"
+[tool.uv.sources]
+cfa-azure = { git = "https://github.com/CDCgov/cfa_azure.git" }
+abctools = { git = "https://github.com/CDCgov/abc-calibration-tools.git", branch = "wtk-uv" }
+griddler = { git = "https://github.com/CDCgov/pygriddler.git" }
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
