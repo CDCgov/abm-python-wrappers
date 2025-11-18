@@ -1052,7 +1052,7 @@ class Experiment:
                 with open(os.path.join(input_dir, input_file_name), "w") as f:
                     json.dump(newpars, f, indent=4)
                 simulation_index += 1
-                
+
     def write_inputs_from_griddle_with_posterior(
         self,
         input_griddle: str = None,
@@ -1159,7 +1159,7 @@ class Experiment:
                 with open(os.path.join(input_dir, input_file_name), "w") as f:
                     json.dump(newpars, f, indent=4)
                 simulation_index += 1
-                
+
     def sample_posterior(experiment, n_samples):
         max_step = max(experiment.tolerance_dict.keys())
         sample_dict = {}
@@ -1168,23 +1168,35 @@ class Experiment:
         # Join weights and accepted on the "simulation" column
         joined_df = accepted.join(weights, on="simulation", how="inner")
         joined_df = joined_df.with_columns(
-            (pl.col("acceptance_weight") * pl.col("weight")).alias("sample_weight")
+            (pl.col("acceptance_weight") * pl.col("weight")).alias(
+                "sample_weight"
+            )
         )
         simulation = joined_df.select("simulation").to_series().to_list()
         sample_weight = joined_df.select("sample_weight").to_series().to_list()
         for sim, w in zip(simulation, sample_weight):
-            sample_dict[sim] = 1/n_samples
-        joined_df = joined_df.drop(["acceptance_weight", "distance",
-            "accept_bool", experiment.seed_variable_name, "weight", "sample_weight"])
-        
+            sample_dict[sim] = 1 / n_samples
+        joined_df = joined_df.drop(
+            [
+                "acceptance_weight",
+                "distance",
+                "accept_bool",
+                experiment.seed_variable_name,
+                "weight",
+                "sample_weight",
+            ]
+        )
+
         sample_keys = random.choices(
             population=list(sample_dict.keys()),
             weights=list(sample_dict.values()),
-            k=n_samples
+            k=n_samples,
         )
-        samples = [joined_df.filter(pl.col("simulation") == key).drop(["simulation"]) for key in sample_keys]
-        return samples  
-
+        samples = [
+            joined_df.filter(pl.col("simulation") == key).drop(["simulation"])
+            for key in sample_keys
+        ]
+        return samples
 
     # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
@@ -1394,10 +1406,14 @@ class Experiment:
             )
         else:
             sim_bundle.results = index_df
-        
+
         if "distances" in products and distance_fn is not None:
-            modifier = sim_bundle.inputs.select(["simulation", "burn_in_period"])
-            sim_bundle.calculate_distances(self.target_data, distance_fn, modifier)
+            modifier = sim_bundle.inputs.select(
+                ["simulation", "burn_in_period"]
+            )
+            sim_bundle.calculate_distances(
+                self.target_data, distance_fn, modifier
+            )
 
         if compress:
             self.store_products(
@@ -1478,11 +1494,15 @@ class Experiment:
                 compress=False,
                 clean=clean,
             )
-        
+
         # Calculate distance summary metrics and store/clean
         if "distances" in products:
-            modifier = simbundle.inputs.select(["simulation", "burn_in_period"])
-            simbundle.calculate_distances(self.target_data, distance_fn, modifier)
+            modifier = simbundle.inputs.select(
+                ["simulation", "burn_in_period"]
+            )
+            simbundle.calculate_distances(
+                self.target_data, distance_fn, modifier
+            )
         if compress:
             self.store_products(
                 sim_indices=simbundle.inputs["simulation"],

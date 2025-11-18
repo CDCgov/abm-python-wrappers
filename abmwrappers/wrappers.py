@@ -532,7 +532,9 @@ def create_scenario_subexperiments(
         config["local_path"]["sub_experiment_name"] = scenario_subexperiment
         config["local_path"]["default_params_file"] = new_params_file
         config["azb"]["azure_batch"] = experiment.azure_batch
-        config["experiment_conditions"]["replicates_per_particle"] = experiment.replicates
+        config["experiment_conditions"][
+            "replicates_per_particle"
+        ] = experiment.replicates
         with open(new_config, "w") as f:
             yaml.dump(config, f)
 
