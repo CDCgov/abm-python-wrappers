@@ -492,7 +492,7 @@ def create_scenario_subexperiments(
         utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
     # Write all inputs
-    experiment.write_inputs_from_griddle(
+    experiment.write_inputs_from_griddle_with_posterior(
         griddle_path,
         scenario_key=scenario_key,
         seed_variable_name=experiment.seed_variable_name,
@@ -531,6 +531,8 @@ def create_scenario_subexperiments(
         config["local_path"]["super_experiment_name"] = "scenarios"
         config["local_path"]["sub_experiment_name"] = scenario_subexperiment
         config["local_path"]["default_params_file"] = new_params_file
+        config["azb"]["azure_batch"] = experiment.azure_batch
+        config["experiment_conditions"]["replicates_per_particle"] = experiment.replicates
         with open(new_config, "w") as f:
             yaml.dump(config, f)
 

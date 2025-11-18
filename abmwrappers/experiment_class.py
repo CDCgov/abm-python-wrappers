@@ -1101,9 +1101,8 @@ class Experiment:
         griddle = griddler.parse(raw_griddle)
         par_sets = griddle
         # print(f"Parsed griddle: {par_sets}")
-
-        sampled_posterior = self.sample_posterior(2)
-        print(sampled_posterior)
+        num_samples = 5
+        sampled_posterior = self.sample_posterior(num_samples)
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
 
@@ -1113,15 +1112,12 @@ class Experiment:
             scenario_key,
             unflatten,
         )
-
         input_dir = os.path.join(self.data_path, "input")
         os.makedirs(input_dir, exist_ok=True)
         simulation_index = 0
 
-        seeds = random.sample(range(0, 2**32), 2)
-        print(seeds)
+        seeds = random.sample(range(0, 2**32), num_samples)
         for par in par_sets:
-            print(par)
             # Remove the griddler scenario keys from the parameter set
             to_remove = []
             for key in par.keys():
@@ -1136,7 +1132,6 @@ class Experiment:
                     par[key] = value[0]
                 par[seed_variable_name] = seeds[counter]
                 counter += 1
-                print(par)
                 newpars, _summary = utils.combine_params_dicts(
                     baseline_dict=baseline_params,
                     new_dict=par,
@@ -1178,9 +1173,9 @@ class Experiment:
         simulation = joined_df.select("simulation").to_series().to_list()
         sample_weight = joined_df.select("sample_weight").to_series().to_list()
         for sim, w in zip(simulation, sample_weight):
-            sample_dict[sim] = w
+            sample_dict[sim] = 1/n_samples
         joined_df = joined_df.drop(["acceptance_weight", "distance",
-            "accept_bool", "randomSeed", "weight", "sample_weight"])
+            "accept_bool", experiment.seed_variable_name, "weight", "sample_weight"])
         
         sample_keys = random.choices(
             population=list(sample_dict.keys()),
@@ -1399,9 +1394,9 @@ class Experiment:
             )
         else:
             sim_bundle.results = index_df
-        modifier = sim_bundle.inputs.select(["simulation", "burn_in_period"])
         
         if "distances" in products and distance_fn is not None:
+            modifier = sim_bundle.inputs.select(["simulation", "burn_in_period"])
             sim_bundle.calculate_distances(self.target_data, distance_fn, modifier)
 
         if compress:
@@ -1483,9 +1478,10 @@ class Experiment:
                 compress=False,
                 clean=clean,
             )
-        modifier = simbundle.inputs.select(["simulation", "burn_in_period"])
+        
         # Calculate distance summary metrics and store/clean
         if "distances" in products:
+            modifier = simbundle.inputs.select(["simulation", "burn_in_period"])
             simbundle.calculate_distances(self.target_data, distance_fn, modifier)
         if compress:
             self.store_products(
