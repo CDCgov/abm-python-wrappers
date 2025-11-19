@@ -496,7 +496,9 @@ def create_scenario_subexperiments(
     # Write all inputs
     if sample_posterior:
         if num_samples is None or num_samples <= 0:
-            raise ValueError("num_samples must be provided when sample_posterior is True")        
+            raise ValueError(
+                "num_samples must be provided when sample_posterior is True"
+            )
         experiment.write_inputs_from_griddle_with_posterior(
             griddle_path,
             scenario_key=scenario_key,

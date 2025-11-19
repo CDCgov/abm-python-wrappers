@@ -1097,7 +1097,7 @@ class Experiment:
                     overwrite_unnested=True,
                     unflatten=unflatten,
                 )
-                
+
                 input_file_name = (
                     f"simulation_{simulation_index}.{self.input_file_type}"
                 )
@@ -1107,7 +1107,9 @@ class Experiment:
 
     def sample_posterior(experiment, n_samples):
         max_step = max(experiment.tolerance_dict.keys())
-        accepted = experiment.simulation_bundles[max_step].accepted.filter(pl.col("accept_bool")  == True)
+        accepted = experiment.simulation_bundles[max_step].accepted.filter(
+            pl.col("accept_bool") is True
+        )
         # Join weights and accepted on the "simulation" column
         accepted = accepted.drop(
             [
