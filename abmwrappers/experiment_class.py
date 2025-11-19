@@ -1020,6 +1020,7 @@ class Experiment:
         scenario_key: str = None,
         unflatten: bool = True,
         seed_variable_name: str | None = None,
+        num_samples: int = 5,
     ):
         """
         Write simulation inputs from a griddler parameter set
@@ -1057,11 +1058,8 @@ class Experiment:
                     )
         elif isinstance(input_griddle, dict):
             raw_griddle = input_griddle
-        # print(f"Raw griddle: {raw_griddle}")
         griddle = griddler.parse(raw_griddle)
         par_sets = griddle
-        # print(f"Parsed griddle: {par_sets}")
-        num_samples = 5
         sampled_posterior = self.sample_posterior(num_samples)
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
@@ -1099,20 +1097,7 @@ class Experiment:
                     overwrite_unnested=True,
                     unflatten=unflatten,
                 )
-                # # Add the scenario key to the parameter set with replicates if specified
-                # for i in range(self.replicates):
-                #     if self.replicates > 1:
-                #         changed_seed = {
-                #             seed_variable_name: random.randint(0, 2**32)
-                #         }
-                #         newpars, _summary = utils.combine_params_dicts(
-                #             baseline_dict=newpars,
-                #             new_dict=changed_seed,
-                #             scenario_key=scenario_key,
-                #             overwrite_unnested=True,
-                #             unflatten=unflatten,
-                #         )
-
+                
                 input_file_name = (
                     f"simulation_{simulation_index}.{self.input_file_type}"
                 )
@@ -1122,38 +1107,22 @@ class Experiment:
 
     def sample_posterior(experiment, n_samples):
         max_step = max(experiment.tolerance_dict.keys())
-        sample_dict = {}
-        weights = experiment.simulation_bundles[max_step].weights
-        accepted = experiment.simulation_bundles[max_step].accepted
+        accepted = experiment.simulation_bundles[max_step].accepted.filter(pl.col("accept_bool")  == True)
         # Join weights and accepted on the "simulation" column
-        joined_df = accepted.join(weights, on="simulation", how="inner")
-        joined_df = joined_df.with_columns(
-            (pl.col("acceptance_weight") * pl.col("weight")).alias(
-                "sample_weight"
-            )
-        )
-        simulation = joined_df.select("simulation").to_series().to_list()
-        sample_weight = joined_df.select("sample_weight").to_series().to_list()
-        for sim, w in zip(simulation, sample_weight):
-            sample_dict[sim] = 1 / n_samples
-        joined_df = joined_df.drop(
+        accepted = accepted.drop(
             [
                 "acceptance_weight",
                 "distance",
                 "accept_bool",
                 experiment.seed_variable_name,
-                "weight",
-                "sample_weight",
             ]
         )
-
         sample_keys = random.choices(
-            population=list(sample_dict.keys()),
-            weights=list(sample_dict.values()),
+            population=accepted.select("simulation").to_series().to_list(),
             k=n_samples,
         )
         samples = [
-            joined_df.filter(pl.col("simulation") == key).drop(["simulation"])
+            accepted.filter(pl.col("simulation") == key).drop(["simulation"])
             for key in sample_keys
         ]
         return samples
