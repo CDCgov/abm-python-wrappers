@@ -314,6 +314,7 @@ def combine_params_dicts(
                 len(splitkeys) > 2
                 and splitkeys[0] in unflat_new.keys()
                 and splitkeys[1] not in unflat_new[splitkeys[0]].keys()
+                and splitkeys[1] != "CensusTract"
             ):
                 to_remove.append(key)
         for key in to_remove:

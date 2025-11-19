@@ -1014,6 +1014,150 @@ class Experiment:
                     json.dump(newpars, f, indent=4)
                 simulation_index += 1
 
+    def write_inputs_from_griddle_with_posterior(
+        self,
+        input_griddle: str = None,
+        scenario_key: str = None,
+        unflatten: bool = True,
+        seed_variable_name: str | None = None,
+    ):
+        """
+        Write simulation inputs from a griddler parameter set
+        :param input_griddle: The path to the griddler parameter set
+        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
+        :param unflatten: Whether to unflatten the parameter set or not
+        :return: None
+        This function will read the griddler parameter set and write the simulation inputs to the input directory
+        If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
+        """
+        if input_griddle is None:
+            if self.griddle_file is not None:
+                input_griddle = self.griddle_file
+            else:
+                raise ValueError(
+                    "No griddler parameter set specified. Please provide a griddler parameter set."
+                )
+        if scenario_key is None:
+            scenario_key = self.scenario_key
+        if seed_variable_name is None:
+            seed_variable_name = self.seed_variable_name
+
+        # Load the parameter sets
+        if isinstance(input_griddle, str):
+            with open(input_griddle, "r") as fp:
+                if input_griddle.lower().endswith(
+                    ".yaml"
+                ) or input_griddle.lower().endswith(".yml"):
+                    raw_griddle = yaml.safe_load(fp)
+                elif input_griddle.lower().endswith(".json"):
+                    raw_griddle = json.load(fp)
+                else:
+                    raise NotImplementedError(
+                        "Griddle input from string must be a yaml or json file"
+                    )
+        elif isinstance(input_griddle, dict):
+            raw_griddle = input_griddle
+        # print(f"Raw griddle: {raw_griddle}")
+        griddle = griddler.parse(raw_griddle)
+        par_sets = griddle
+        # print(f"Parsed griddle: {par_sets}")
+        num_samples = 5
+        sampled_posterior = self.sample_posterior(num_samples)
+        ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
+        ## Change to combine param dicts
+
+        baseline_params, _summary_string = utils.load_baseline_params(
+            self.default_params_file,
+            self.changed_baseline_params,
+            scenario_key,
+            unflatten,
+        )
+        input_dir = os.path.join(self.data_path, "input")
+        os.makedirs(input_dir, exist_ok=True)
+        simulation_index = 0
+
+        seeds = random.sample(range(0, 2**32), num_samples)
+        for par in par_sets:
+            # Remove the griddler scenario keys from the parameter set
+            to_remove = []
+            for key in par.keys():
+                if key.startswith("scenario"):
+                    to_remove.append(key)
+            for key in to_remove:
+                par.pop(key)
+            counter = 0
+            for sample in sampled_posterior:
+                sample_dict = sample.to_dict(as_series=False)
+                for key, value in sample_dict.items():
+                    par[key] = value[0]
+                par[seed_variable_name] = seeds[counter]
+                counter += 1
+                newpars, _summary = utils.combine_params_dicts(
+                    baseline_dict=baseline_params,
+                    new_dict=par,
+                    scenario_key=scenario_key,
+                    overwrite_unnested=True,
+                    unflatten=unflatten,
+                )
+                # # Add the scenario key to the parameter set with replicates if specified
+                # for i in range(self.replicates):
+                #     if self.replicates > 1:
+                #         changed_seed = {
+                #             seed_variable_name: random.randint(0, 2**32)
+                #         }
+                #         newpars, _summary = utils.combine_params_dicts(
+                #             baseline_dict=newpars,
+                #             new_dict=changed_seed,
+                #             scenario_key=scenario_key,
+                #             overwrite_unnested=True,
+                #             unflatten=unflatten,
+                #         )
+
+                input_file_name = (
+                    f"simulation_{simulation_index}.{self.input_file_type}"
+                )
+                with open(os.path.join(input_dir, input_file_name), "w") as f:
+                    json.dump(newpars, f, indent=4)
+                simulation_index += 1
+
+    def sample_posterior(experiment, n_samples):
+        max_step = max(experiment.tolerance_dict.keys())
+        sample_dict = {}
+        weights = experiment.simulation_bundles[max_step].weights
+        accepted = experiment.simulation_bundles[max_step].accepted
+        # Join weights and accepted on the "simulation" column
+        joined_df = accepted.join(weights, on="simulation", how="inner")
+        joined_df = joined_df.with_columns(
+            (pl.col("acceptance_weight") * pl.col("weight")).alias(
+                "sample_weight"
+            )
+        )
+        simulation = joined_df.select("simulation").to_series().to_list()
+        sample_weight = joined_df.select("sample_weight").to_series().to_list()
+        for sim, w in zip(simulation, sample_weight):
+            sample_dict[sim] = 1 / n_samples
+        joined_df = joined_df.drop(
+            [
+                "acceptance_weight",
+                "distance",
+                "accept_bool",
+                experiment.seed_variable_name,
+                "weight",
+                "sample_weight",
+            ]
+        )
+
+        sample_keys = random.choices(
+            population=list(sample_dict.keys()),
+            weights=list(sample_dict.values()),
+            k=n_samples,
+        )
+        samples = [
+            joined_df.filter(pl.col("simulation") == key).drop(["simulation"])
+            for key in sample_keys
+        ]
+        return samples
+
     # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
     # --------------------------------------------
