@@ -1017,102 +1017,10 @@ class Experiment:
                 json.dump(newpars, f, indent=4)
             simulation_index += 1
 
-    def write_inputs_from_griddle_with_posterior(
-        self,
-        input_griddle: str = None,
-        scenario_key: str = None,
-        unflatten: bool = True,
-        seed_variable_name: str | None = None,
-        num_samples: int = 5,
-    ):
-        """
-        Write simulation inputs from a griddler parameter set
-        :param input_griddle: The path to the griddler parameter set
-        :param scenario_key: The key to use for the scenario in the simulation bundle input dictionary. Will default to self.scenario_key if unspecified
-        :param unflatten: Whether to unflatten the parameter set or not
-        :return: None
-        This function will read the griddler parameter set and write the simulation inputs to the input directory
-        If griddle scenrio varying  parameters are not to be written into the parameter input files, specify them with "scenario_" asd a prefix
-        """
-        if input_griddle is None:
-            if self.griddle_file is not None:
-                input_griddle = self.griddle_file
-            else:
-                raise ValueError(
-                    "No griddler parameter set specified. Please provide a griddler parameter set."
-                )
-        if scenario_key is None:
-            scenario_key = self.scenario_key
-        if seed_variable_name is None:
-            seed_variable_name = self.seed_variable_name
-
-        # Load the parameter sets
-        if isinstance(input_griddle, str):
-            with open(input_griddle, "r") as fp:
-                if input_griddle.lower().endswith(
-                    ".yaml"
-                ) or input_griddle.lower().endswith(".yml"):
-                    raw_griddle = yaml.safe_load(fp)
-                elif input_griddle.lower().endswith(".json"):
-                    raw_griddle = json.load(fp)
-                else:
-                    raise NotImplementedError(
-                        "Griddle input from string must be a yaml or json file"
-                    )
-        elif isinstance(input_griddle, dict):
-            raw_griddle = input_griddle
-        griddle = griddler.parse(raw_griddle)
-        par_sets = griddle
-        sampled_posterior = self.sample_posterior(num_samples)
-        ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
-        ## Change to combine param dicts
-
-        baseline_params, _summary_string = utils.load_baseline_params(
-            self.default_params_file,
-            self.changed_baseline_params,
-            scenario_key,
-            unflatten,
-        )
-        input_dir = os.path.join(self.data_path, "input")
-        os.makedirs(input_dir, exist_ok=True)
-        simulation_index = 0
-
-        seeds = random.sample(range(0, 2**32), num_samples)
-        for par in par_sets:
-            # Remove the griddler scenario keys from the parameter set
-            to_remove = []
-            for key in par.keys():
-                if key.startswith("scenario"):
-                    to_remove.append(key)
-            for key in to_remove:
-                par.pop(key)
-            counter = 0
-            for sample in sampled_posterior:
-                sample_dict = sample.to_dict(as_series=False)
-                for key, value in sample_dict.items():
-                    par[key] = value[0]
-                par[seed_variable_name] = seeds[counter]
-                counter += 1
-                newpars, _summary = utils.combine_params_dicts(
-                    baseline_dict=baseline_params,
-                    new_dict=par,
-                    scenario_key=scenario_key,
-                    overwrite_unnested=True,
-                    unflatten=unflatten,
-                    preserve_keys=["CensusTract"],
-                )
-
-                input_file_name = (
-                    f"simulation_{simulation_index}.{self.input_file_type}"
-                )
-                with open(os.path.join(input_dir, input_file_name), "w") as f:
-                    json.dump(newpars, f, indent=4)
-                simulation_index += 1
-
     def sample_posterior(experiment, n_samples):
         max_step = max(experiment.tolerance_dict.keys())
         accepted = experiment.simulation_bundles[max_step].accepted.filter(
-            pl.col("accept_bool") is True
+            pl.col("accept_bool")
         )
         # Join weights and accepted on the "simulation" column
         accepted = accepted.drop(
