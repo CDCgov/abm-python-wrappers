@@ -462,8 +462,8 @@ def create_scenario_subexperiments(
     griddle_path: str = None,
     scenario_key: str = None,
     ask_overwrite: bool = True,
-    sample_posterior: bool = True,
-    num_samples: int | None = None,
+    sample_posterior: bool | None = False,
+    n_samples: int | None = None,
 ):
     """
     Splits a series of inputs into sub-experiments under a scenario=index data structure
@@ -493,24 +493,13 @@ def create_scenario_subexperiments(
                 return
         utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
-    # Write all inputs
-    if sample_posterior:
-        if num_samples is None or num_samples <= 0:
-            raise ValueError(
-                "num_samples must be provided when sample_posterior is True"
-            )
-        experiment.write_inputs_from_griddle_with_posterior(
-            griddle_path,
-            scenario_key=scenario_key,
-            seed_variable_name=experiment.seed_variable_name,
-            num_samples=num_samples,
-        )
-    else:
-        experiment.write_inputs_from_griddle(
-            griddle_path,
-            scenario_key=scenario_key,
-            seed_variable_name=experiment.seed_variable_name,
-        )
+    experiment.write_inputs_from_griddle(
+        griddle_path,
+        scenario_key=scenario_key,
+        seed_variable_name=experiment.seed_variable_name,
+        sample_posterior=sample_posterior,
+        n_samples=n_samples,
+    )
 
     # Store each simulation input as the base for a scenario=index subfolder in data
     input_folder = os.path.join(experiment.data_path, "input")
