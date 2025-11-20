@@ -462,6 +462,8 @@ def create_scenario_subexperiments(
     griddle_path: str = None,
     scenario_key: str = None,
     ask_overwrite: bool = True,
+    sample_posterior: bool | None = False,
+    n_samples: int | None = None,
 ):
     """
     Splits a series of inputs into sub-experiments under a scenario=index data structure
@@ -491,11 +493,12 @@ def create_scenario_subexperiments(
                 return
         utils.remove_directory_tree(experiment.data_path, remove_root=False)
 
-    # Write all inputs
     experiment.write_inputs_from_griddle(
         griddle_path,
         scenario_key=scenario_key,
         seed_variable_name=experiment.seed_variable_name,
+        sample_posterior=sample_posterior,
+        n_samples=n_samples,
     )
 
     # Store each simulation input as the base for a scenario=index subfolder in data
@@ -531,6 +534,11 @@ def create_scenario_subexperiments(
         config["local_path"]["super_experiment_name"] = "scenarios"
         config["local_path"]["sub_experiment_name"] = scenario_subexperiment
         config["local_path"]["default_params_file"] = new_params_file
+        # Use an updated azure flag from the experiment as scenarios are not on azure
+        config["azb"]["azure_batch"] = experiment.azure_batch
+        config["experiment_conditions"][
+            "replicates_per_particle"
+        ] = experiment.replicates
         with open(new_config, "w") as f:
             yaml.dump(config, f)
 

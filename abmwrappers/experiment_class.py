@@ -921,6 +921,8 @@ class Experiment:
         scenario_key: str = None,
         unflatten: bool = True,
         seed_variable_name: str | None = None,
+        sample_posterior: bool = False,
+        n_samples: int = 5,
     ):
         """
         Write simulation inputs from a griddler parameter set
@@ -962,6 +964,12 @@ class Experiment:
 
         griddle = griddler.parse(raw_griddle)
         par_sets = griddle
+        if sample_posterior:
+            if n_samples is None or n_samples <= 0:
+                raise ValueError(
+                    "num_samples must be provided when sample_posterior is True"
+                )
+            sampled_posterior = self.sample_posterior(n_samples)
 
         ## These will work fine for changed_baseline_params but will need a method for dropping the higher level key
         ## Change to combine param dicts
@@ -972,11 +980,12 @@ class Experiment:
             scenario_key,
             unflatten,
         )
-
         input_dir = os.path.join(self.data_path, "input")
         os.makedirs(input_dir, exist_ok=True)
         simulation_index = 0
 
+        iterator = self.replicates if not sample_posterior else n_samples
+        seeds = random.sample(range(0, 2**32), iterator)
         for par in par_sets:
             # Remove the griddler scenario keys from the parameter set
             to_remove = []
@@ -985,34 +994,52 @@ class Experiment:
                     to_remove.append(key)
             for key in to_remove:
                 par.pop(key)
-
-            newpars, _summary = utils.combine_params_dicts(
-                baseline_dict=baseline_params,
-                new_dict=par,
-                scenario_key=scenario_key,
-                overwrite_unnested=True,
-                unflatten=unflatten,
-            )
-            # Add the scenario key to the parameter set with replicates if specified
-            for i in range(self.replicates):
-                if self.replicates > 1:
-                    changed_seed = {
-                        seed_variable_name: random.randint(0, 2**32)
-                    }
-                    newpars, _summary = utils.combine_params_dicts(
-                        baseline_dict=newpars,
-                        new_dict=changed_seed,
-                        scenario_key=scenario_key,
-                        overwrite_unnested=True,
-                        unflatten=unflatten,
-                    )
-
-                input_file_name = (
-                    f"simulation_{simulation_index}.{self.input_file_type}"
+            for counter in range(iterator):
+                if sample_posterior:
+                    sample = sampled_posterior[counter]
+                    sample_dict = sample.to_dict(as_series=False)
+                    for key, value in sample_dict.items():
+                        par[key] = value[0]
+                par[seed_variable_name] = seeds[counter]
+                newpars, _summary = utils.combine_params_dicts(
+                    baseline_dict=baseline_params,
+                    new_dict=par,
+                    scenario_key=scenario_key,
+                    overwrite_unnested=True,
+                    unflatten=unflatten,
+                    preserve_keys=["CensusTract"],
                 )
-                with open(os.path.join(input_dir, input_file_name), "w") as f:
-                    json.dump(newpars, f, indent=4)
-                simulation_index += 1
+
+            input_file_name = (
+                f"simulation_{simulation_index}.{self.input_file_type}"
+            )
+            with open(os.path.join(input_dir, input_file_name), "w") as f:
+                json.dump(newpars, f, indent=4)
+            simulation_index += 1
+
+    def sample_posterior(experiment, n_samples):
+        max_step = max(experiment.tolerance_dict.keys())
+        accepted = experiment.simulation_bundles[max_step].accepted.filter(
+            pl.col("accept_bool")
+        )
+        # Join weights and accepted on the "simulation" column
+        accepted = accepted.drop(
+            [
+                "acceptance_weight",
+                "distance",
+                "accept_bool",
+                experiment.seed_variable_name,
+            ]
+        )
+        sample_keys = random.choices(
+            population=accepted.select("simulation").to_series().to_list(),
+            k=n_samples,
+        )
+        samples = [
+            accepted.filter(pl.col("simulation") == key).drop(["simulation"])
+            for key in sample_keys
+        ]
+        return samples
 
     # --------------------------------------------
     # Simulation bundles and ABC SMC funcitons
