@@ -1010,12 +1010,12 @@ class Experiment:
                     preserve_keys=["CensusTract"],
                 )
 
-            input_file_name = (
-                f"simulation_{simulation_index}.{self.input_file_type}"
-            )
-            with open(os.path.join(input_dir, input_file_name), "w") as f:
-                json.dump(newpars, f, indent=4)
-            simulation_index += 1
+                input_file_name = (
+                    f"simulation_{simulation_index}.{self.input_file_type}"
+                )
+                with open(os.path.join(input_dir, input_file_name), "w") as f:
+                    json.dump(newpars, f, indent=4)
+                simulation_index += 1
 
     def sample_posterior(experiment, n_samples):
         max_step = max(experiment.tolerance_dict.keys())
