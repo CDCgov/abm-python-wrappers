@@ -139,6 +139,35 @@ class Experiment:
         if "priors" not in self.__dict__.keys():
             self.priors = None
 
+    def __repr__(self):
+        if self.tolerance_dict is None:
+            steps = 1
+        else:
+            steps = len(self.tolerance_dict)
+        if self.current_step is not None:
+            descriptor_text = (
+                f"Currently on step {self.current_step} of {steps},\n"
+                f"having executed {self.current_step * self.n_simulations} simulations.\n"
+                f"Inspect {self.data_path} for current output.\n"
+            )
+        else:
+            descriptor_text = (
+                f"Has not been initialized yet to run {steps} steps.\n"
+            )
+
+        experiment_name = "Experiment: "
+        if self.super_experiment_name is not None:
+            experiment_name += f" {self.super_experiment_name}"
+        if self.sub_experiment_name is not None:
+            experiment_name += f" {self.sub_experiment_name}"
+        if (
+            self.super_experiment_name is None
+            and self.sub_experiment_name is None
+        ):
+            experiment_name += f" located in {self.directory}"
+
+        return experiment_name + "\n" + descriptor_text
+
     # --------------------------------------------
     # Loading and storing the experiment
     # --------------------------------------------
@@ -400,6 +429,7 @@ class Experiment:
             - directory
             - data path
             - exe_file and model type
+            - griddler schema file
             - Azure batch and storage credential
             - blob container name
         Simulation bundle data:
@@ -427,6 +457,8 @@ class Experiment:
 
         data = {
             "config_file": self.config_file,
+            "super_experiment_name": self.super_experiment_name,
+            "sub_experiment_name": self.sub_experiment_name,
             "directory": self.directory,
             "data_path": self.data_path,
             "exe_file": self.exe_file,
@@ -496,6 +528,8 @@ class Experiment:
         # Unpack the data into the experiment object
         self.config_file = data["config_file"]
         self.directory = data["directory"]
+        self.super_experiment_name = data["super_experiment_name"]
+        self.sub_experiment_name = data["sub_experiment_name"]
         self.data_path = data["data_path"]
         self.exe_file = data["exe_file"]
         self.griddle_file = data["griddle_file"]
@@ -705,6 +739,7 @@ class Experiment:
         data_read_fn: Callable[[pl.DataFrame], pl.DataFrame] | None = None,
         write: bool = False,
         partition_by: list[str] | str | None = None,
+        verbose: bool | None = None,
     ) -> pl.DataFrame:
         """
         Function to read results from simulation output stored as nested CSV files or as hive-partitioned parquets.
@@ -724,6 +759,8 @@ class Experiment:
             :param partition_by: A list of columns to partition the data by when storing it as a parquet file. If not specified, defaults to None
         """
         # Default to dat path and the simulations parquet file
+        if verbose is None:
+            verbose = self.verbose
         if not input_dir:
             if self.azure_batch:
                 input_dir = f"{self.sub_experiment_name}/data"
@@ -738,7 +775,9 @@ class Experiment:
         if os.path.exists(f"{input_dir}/{filename}") or self.azure_batch:
             if len(filename.split(".")) == 1:
                 # Special case for names in "products"
-                data = self.parquet_from_path(f"{input_dir}/{filename}/")
+                data = self.parquet_from_path(
+                    f"{input_dir}/{filename}/", verbose=verbose
+                )
                 if data_read_fn is not None:
                     warnings.warn(
                         "Preprocessing function specified for a hive-partitioned parquet file. Please ensure that the function is compatible with the data format.",
